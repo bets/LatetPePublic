@@ -8,13 +8,17 @@
     direction: ltr;
 }
 
-#payCalc * {
-    font-family: "Varela Round", sans-serif;
+#payCalc {
+    margin-right: 1em;
 }
 
-    #payCalc *:not(h1,h2,h3) {
-        font-size: 13px;
+    #payCalc * {
+        font-family: "Varela Round", sans-serif;
     }
+
+        #payCalc *:not(h1,h2,h3) {
+            font-size: 13px;
+        }
 
 #payCalcName label {
     margin: 0.5em;
@@ -141,7 +145,7 @@ input[type="checkbox"] {
     font-weight: bold;
 }
 
-    #payCalc tfoot tr:last-of-type * {
+    #payCalc tfoot tr:last-of-type > * {
         font-size: 1.1em;
         background-color: rgba(0, 0, 0, 0.1);
     }
