@@ -1,0 +1,263 @@
+@import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
+
+:root {
+    --th-color: #95a5a6;
+}
+
+.ltr {
+    direction: ltr;
+}
+
+#payCalc * {
+    font-family: "Varela Round", sans-serif;
+}
+
+    #payCalc *:not(h1,h2,h3) {
+        font-size: 13px;
+    }
+
+#payCalcName label {
+    margin: 0.5em;
+    font-weight: bold;
+}
+
+#payCalcName input {
+    border: 0;
+    border-bottom: 1px lightgray solid !important;
+    border-radius: 0;
+}
+
+#payCalc input {
+    border: 0;
+    border-radius: 2px;
+}
+
+#outTableInput label {
+    margin: 0.5em;
+    font-weight: bold;
+    display: inline-block;
+    width: 7em;
+}
+
+#outTableInput input {
+    border: 0;
+    border-bottom: 1px lightgray solid !important;
+}
+
+    #outTableInput input[type=number] {
+        width: 4em;
+    }
+
+#send {
+    padding: 0.5em 2em;
+    background-color: var(--th-color);
+    filter: brightness(120%);
+    border-radius: 6px;
+    font-weight: bold;
+    margin: 0.5em;
+    border: 0;
+}
+
+    #send:hover {
+        filter: brightness(130%);
+    }
+
+.addRemove {
+    cursor: pointer;
+    width: 2em;
+    text-align: center;
+}
+
+    .addRemove:hover {
+        background-color: var(--th-color);
+        filter: brightness(140%);
+        font-weight: bold;
+        border-radius: 15px;
+    }
+
+#addRow {
+    color: green;
+}
+
+.removeRow {
+    color: red;
+}
+
+#payCalc input,
+#payCalc td {
+    text-align: center;
+}
+
+#payCalc table {
+    border-collapse: collapse;
+}
+
+#payCalc tr th {
+    background-color: var(--th-color);
+    padding: 1em;
+}
+
+    #payCalc tr th:first-of-type {
+        border-top-right-radius: 4px;
+    }
+
+    #payCalc tr th:last-of-type {
+        border-top-left-radius: 4px;
+    }
+
+#payCalc tfoot tr td:first-of-type {
+    border-bottom-right-radius: 4px;
+}
+
+#payCalc tfoot tr td:last-of-type {
+    border-bottom-left-radius: 4px;
+}
+
+#payCalc tr {
+    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.1);
+    margin-bottom: 15px;
+}
+
+#payCalc td {
+    padding: 1em 0;
+    white-space: nowrap;
+}
+
+#payCalc table input::placeholder {
+    font-size: 0.9em;
+}
+
+.sInput [type="text"],
+.sInput [type="search"] {
+    width: 70px;
+}
+
+input[type="checkbox"] {
+    accent-color: var(--th-color);
+    filter: brightness(140%);
+}
+
+#payCalc tfoot {
+    font-weight: bold;
+}
+
+    #payCalc tfoot tr:last-of-type * {
+        font-size: 1.1em;
+        background-color: rgba(0, 0, 0, 0.1);
+    }
+
+#payCalc [class^="invalid"],
+#payCalc input:invalid {
+    border: 1px solid red !important;
+}
+
+#errorMsg li {
+    display: none;
+    color: red;
+}
+
+#receipt,
+[for="receipt"] {
+    margin: 0.5em 1em 0 0;
+}
+
+#payCalc .tableContainer {
+    overflow-x: auto;
+}
+
+#payCalc .saveExplainIcon {
+    font-size: 1.3em;
+    cursor: default;
+}
+
+#payCalc #saveInfo span {
+    margin: 0.5em;
+}
+
+#payCalc #saveInfo #saveTime {
+    font-size: 0.8em;
+    margin-right: 0.5em;
+}
+
+#payCalc #saveInfo #clearStorageBtn {
+    margin-top: 6px;
+    padding: 2px 4px;
+    background-color: lightgray; /*var(--th-color); */
+    border-radius: 4px;
+    cursor: pointer;
+    filter: brightness(115%);
+}
+
+    #payCalc #saveInfo #clearStorageBtn:hover {
+        filter: brightness(110%);
+    }
+
+#payCalc #saveInfo #saveExplain {
+    background-color: #f7f5f0;
+    border-radius: 4px;
+    border-color: var(--th-color);
+}
+
+#payCalc .skipSum * {
+    color: lightgray;
+}
+
+/* Loading */
+#loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.05);
+    z-index: 1000;
+}
+
+.hide {
+    display: none;
+}
+
+.blocks {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    justify-content: center;
+}
+
+.block {
+    --sz: 8vmin;
+    --tX: 0;
+    --animation: 700ms cubic-bezier(0.3, 0.5, 0.4, 0.9) infinite alternate-reverse;
+    --hm: 4.5vmin;
+    height: var(--sz);
+    width: var(--sz);
+    background-image: var(--bg);
+    border-radius: 50%;
+    transform: translateX(var(--tX));
+    mix-blend-mode: lighten;
+}
+
+.orange {
+    --bg: linear-gradient(-50deg, #fbab7e 0%, #f7ce68 100%);
+    margin-right: var(--hm);
+    animation: attract-orange var(--animation);
+}
+
+.blue {
+    --bg: linear-gradient(50deg, #00bfd5 0%, #c5f5ff 100%);
+    margin-left: var(--hm);
+    animation: attract-blue var(--animation);
+}
+
+@keyframes attract-orange {
+    to {
+        transform: translateX(calc(var(--sz) + calc(var(--hm) / 4)));
+    }
+}
+
+@keyframes attract-blue {
+    to {
+        transform: translateX(calc(var(--sz) * -1 - calc(var(--hm) / 4)));
+    }
+}
