@@ -10,6 +10,8 @@ const seniority6Col = 7;//L
 const seniority26Col = 8;//M
 const constNameCol = 9;//O
 const constValCol = 10;//P
+const cancelPayNameCol = 11;//Q
+const cancelPayValCol = 12;//R
 
 // GET GOOGLE SHEET DATA
 google.charts.load("current", { packages: ["corechart"] });
@@ -17,7 +19,7 @@ google.charts.setOnLoadCallback(function () {
     var query = new google.visualization.Query(
         `https://docs.google.com/spreadsheets/d/${sourceSheetId}/gviz/tq`
     );
-    query.setQuery("select A,B,D,E,G,J,K,L,M,O,P");
+    query.setQuery("select A,B,D,E,G,J,K,L,M,O,P,Q,R");
     query.send(handleQueryResponse);
 });
 var data;
@@ -35,6 +37,8 @@ function handleQueryResponse(re) {
     makeSelect(getCol(activityCol), "activityType");
     makeSelect(getCol(seniorityGroupCol), "seniority");
     makeSelect([1, 2, 3, 4, 5, 6, 7], "activityAmount");
+    makeSelect(getCol(cancelPayNameCol, cancelPayValCol), "cancelPay");
+
     //save first row as template
     rowClone = qs("#payCalc tbody tr").cloneNode(true);
     setNewRowNum();
@@ -70,9 +74,13 @@ function getValue(row, col) {
 
 /** Get the data-val from the option of the chosen key */
 function getValFromList(rowNum, tdClass) {
-    let key = qs(`[data-rownum='${rowNum}'] .${tdClass} input`).value;
-    let option = Array.from(qsa(`#${tdClass}List option`)).find(
-        (x) => x.innerText == key
+    return getListInputDataVal(`[data-rownum='${rowNum}'] .${tdClass} input`);
+}
+/** Get the data-val from the option of the chosen key */
+function getListInputDataVal(selector) {
+    let inputElement = qs(selector);
+    let option = Array.from(inputElement.list.querySelectorAll("option")).find(
+        (x) => x.innerText == inputElement.value
     );
     return option ? option.dataset.val : null;
 }
@@ -105,11 +113,14 @@ function setNewRowNum() {
     });
 }
 
-//Create a list of options to populate an input
+/** Create a list of options to populate an input */
 function makeSelect(options, target, isId) {
+    let selector = isId ? "#" : "#payCalc tbody tr .";
     let input = document.createElement("input");
     input.type = "search";
-    input.setAttribute("placeholder", "נא לבחור"); // ▼
+
+    if (!qs(selector + target).classList.contains("okEmpty"))
+        input.setAttribute("placeholder", "נא לבחור"); // ▼
     input.setAttribute("list", target + "List");
     var datalist = document.createElement("datalist");
     datalist.id = target + "List";
@@ -128,7 +139,6 @@ function makeSelect(options, target, isId) {
         option.dataset.val = options[i].val ?? options[i];
         datalist.appendChild(option);
     }
-    let selector = isId ? "#" : "#payCalc tbody tr .";
     qs(selector + target).appendChild(input);
     qi("lists").appendChild(datalist);
 }
@@ -178,7 +188,7 @@ function displayStorageTime() {
 }
 //#endregion
 
-// CALCULATIONS
+//#region CALCULATIONS
 /** Calculate payment for activity
  Activity has 3 prices based on seniority
  Above times the amount of the activity given that day
@@ -252,11 +262,23 @@ function payPerActivity(e, addSup = null) {
         parseInt(seniorityCol) + 5
     );
     // console.log(`type ${singalCost}, Vetek ${seniorityCol}, Amount ${activityAmount}`);
-    let payVal = parseInt(activityAmount) * singalCost;
+    let payRowActivity = parseInt(activityAmount) * singalCost;
     if (addSup)
-        payVal += parseInt(getCol(constNameCol, constValCol).find((x) => x.key == tag).val);
+        payRowActivity += parseInt(getCol(constNameCol, constValCol).find((x) => x.key == tag).val);
 
-    qs(`[data-rownum='${rowNum}'] .activityPay input`).value = payVal;
+    let cancelPay = qs(`[data-rownum='${rowNum}'] .cancelPay input`);
+    if (cancelPay) { //not in office
+        let reduceBy = "" == cancelPay.value ? 0 : getValFromList(rowNum, "cancelPay");
+        if (reduceBy) {
+            payRowActivity = payRowActivity * reduceBy;
+            qs(`[data-rownum='${rowNum}'] .distance input`).value = "";
+            qs(`[data-rownum='${rowNum}'] .distance input`).readOnly = true;
+            payPerKm(e);
+        } else
+            qs(`[data-rownum='${rowNum}'] .distance input`).readOnly = false;
+    }
+
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).value = payRowActivity;
 
     qi("totalActivityPay").innerText = sumCells(".activityPay input");
     if (qi("totalPay"))//not in office
@@ -303,15 +325,9 @@ function sumCells(selector) {
         0
     );
 }
-function getListInputDataVal(selector) {
-    let inputElement = qs(selector);
-    let option = Array.from(inputElement.list.querySelectorAll("option")).find(
-        (x) => x.innerText == inputElement.value
-    );
-    if (option == null) return null;
-    return option.dataset.val;
-}
-// EVENTS
+//#endregion
+
+//#region EVENTS
 function addEventListeners() {
     qsa("input").forEach(function (e) {
         e.addEventListener("change", () => setTimeout(saveToStorage, 1000));
@@ -360,7 +376,8 @@ function addEventListeners() {
     // next 2 must be bound after similer selector events so happends after
     qsa(".spacetime input").forEach(function (e) {
         e.addEventListener("change", handelSingalActivitySup);
-    }); qsa(".activity input").forEach(function (e) {
+    });
+    qsa(".activity input").forEach(function (e) {
         e.addEventListener("change", handelSingalActivitySup);
     });
     if (qs("#receipt"))//not for office
@@ -376,6 +393,7 @@ function addEventListeners() {
             qi("receiptNotice").classList.remove("hide");
         });
 }
+//#endregion
 
 //#region VALIDATIONS
 function isFromList(e) {
@@ -387,7 +405,8 @@ function isFromListCheck(el) {
     let option = Array.from(el.list.querySelectorAll("option")).find(
         (x) => x.innerText == el.value
     );
-    if (option != null) el.classList.remove("invalidList");
+    if (option != null || (el.value == "" && el.parentElement.classList.contains("okEmpty")))
+        el.classList.remove("invalidList");
     else el.classList.add("invalidList");
     showErrorMsg();
     return !el.classList.contains("invalidList");
@@ -396,9 +415,8 @@ function isListNotEmpty() {
     qsa("#payCalc [list]").forEach((el) => {
         if (el.value && isFromListCheck(el)) {
             el.classList.remove("invalidList");
-        } else {
+        } else if (!(el.value == "" && el.parentElement.classList.contains("okEmpty")))
             el.classList.add("invalidList");
-        }
     });
 }
 function checkDate() {

@@ -131,14 +131,34 @@
     font-size: 0.9em;
 }
 
+table [type="text"],
+table [type="search"] {
+    width: 100px;
+}
 .sInput [type="text"],
 .sInput [type="search"] {
     width: 70px;
+}
+.lInput [type="text"],
+.lInput [type="search"] {
+    width: 180px;
+}
+
+.smallCol{
+    max-width:60px;
+}
+
+.minInput input {
+    max-width: 60px;
+    margin:0 9px;
 }
 
 input[type="checkbox"] {
     accent-color: var(--th-color);
     filter: brightness(140%);
+}
+.okEmpty input {
+    box-shadow: 0px 0px 2px 0px rgba(0, 0, 0, 0.1);
 }
 
 #payCalc tfoot {
