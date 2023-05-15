@@ -1,3 +1,4 @@
+// version 20230515 - 1126
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
