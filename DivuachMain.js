@@ -1,4 +1,4 @@
-// version 20230517 - 1219
+// version 20230517 - 1303
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -118,6 +118,7 @@ function setNewRowNum() {
 
 /** Create a list of options to populate an input */
 function makeSelect(options, target, isId) {
+    if (options.length == 0) return;
     let selector = isId ? "#" : "#payCalc tbody tr .";
     let input = document.createElement("input");
     input.type = "search";
