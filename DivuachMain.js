@@ -1,4 +1,4 @@
-// version 20230515 - 1126
+// version 20230517 - 1219
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -100,11 +100,13 @@ function getTagFromListOption(key, tdClass) {
 
 //#region CREATE ELEMENTS
 var rowClone;
-function addRow() {
+function addRow(e) {
+    if (e.type == "keypress" && e.key != "Enter") return;
     let clone = rowClone.cloneNode(true);
     qs("#payCalc tbody").append(clone);
     setNewRowNum();
     addEventListeners();
+    [...qsa("#payCalc [type='date']")].pop().focus();
 }
 
 function setNewRowNum() {
@@ -338,7 +340,7 @@ function addEventListeners() {
     qi("saveI").addEventListener("mouseleave", () =>
         qi("saveExplain").close()
     );
-    qs("#addRow").addEventListener("click", addRow);
+    action("#addRow", "click, keypress", addRow);
     qsa(".removeRow").forEach(function (e) {
         e.addEventListener("click", removeRow);
     });
@@ -465,7 +467,7 @@ function addStyle(clone, selector, styleName, style) {
 }
 
 async function postData(formData, webhook) {
-    const response = await fetch(webhook, {
+const response = await fetch(webhook, {
         method: "POST",
         cache: "no-store",
         body: formData
@@ -509,4 +511,16 @@ function qp(p, n) {
 }
 function cl(txt) {
     console.log(txt);
+}
+/**
+ * Add event listener to element, works with singal or many elements & events
+ * @param {string} selector selector of one or more elements
+ * @param {string} events event names separated by comma
+ * @param {any} func function name to execute
+ */
+function action(selector, events, func) {
+    qsa(selector).forEach(el => 
+        events.replaceAll(" ","").split(",").forEach(e =>
+            el.addEventListener(e, func))
+    );
 }
