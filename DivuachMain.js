@@ -1,4 +1,4 @@
-// version 20230517 - 1303
+// version 20230821 - 1354
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -325,7 +325,12 @@ function getRowNum(e) {
 
 function sumCells(selector) {
     return Array.from(qsa(selector)).reduce(
-        (sum, el) => sum + parseInt(el.value ? el.value : el.innerText),
+        (sum, el) => {
+            var elNum = parseInt(el.value ? el.value : el.innerText);
+            if (isNaN(elNum))
+                elNum = 0;
+            return sum + elNum;
+        },
         0
     );
 }
