@@ -1,4 +1,4 @@
-// version 20230821 - 1354
+// version 20230921 - 1700
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -73,6 +73,11 @@ function getValue(row, col) {
     return data.getValue(row, col) ?? "";
 }
 
+/** get const value from sheet db by key */
+function getConstValue(key) {
+    return getCol(constNameCol, constValCol).find((x) => x.key == key).val;
+}
+
 /** Get the data-val from the option of the chosen key */
 function getValFromList(rowNum, tdClass) {
     return getListInputDataVal(`[data-rownum='${rowNum}'] .${tdClass} input`);
@@ -87,8 +92,8 @@ function getListInputDataVal(selector) {
 }
 
 /** Get the data-tag of an option from a list 
- * @param key {string} a The first number to add
- * @param tdClass {string} b The second number to add
+ * @param key {string} Name of the select option with out the tag (tag in {culy brakents})
+ * @param tdClass {string} The class name togther with List is the list Id (like this #CLASSNAMEList)
  * @returns {string} the tag name
  */
 function getTagFromListOption(key, tdClass) {
@@ -101,12 +106,14 @@ function getTagFromListOption(key, tdClass) {
 //#region CREATE ELEMENTS
 var rowClone;
 function addRow(e) {
-    if (e.type == "keypress" && e.key != "Enter") return;
+    if (e && e.type == "keypress" && e.key != "Enter") return;
     let clone = rowClone.cloneNode(true);
     qs("#payCalc tbody").append(clone);
-    setNewRowNum();
+    let rowNum = setNewRowNum();
     addEventListeners();
-    [...qsa("#payCalc [type='date']")].pop().focus();
+    if (e && e.type == "keypress" && e.key == "Enter")//only when add new row and not for VAT row (and like)
+        [...qsa("#payCalc [type='date']")].pop().focus();
+    return rowNum;
 }
 
 function setNewRowNum() {
@@ -114,6 +121,7 @@ function setNewRowNum() {
     qsa("#payCalc tbody tr").forEach(function (e) {
         e.dataset.rownum = i++;
     });
+    return i - 1;
 }
 
 /** Create a list of options to populate an input */
@@ -287,6 +295,99 @@ function payPerActivity(e, addSup = null) {
     qi("totalActivityPay").innerText = sumCells(".activityPay input");
     if (qi("totalPay"))//not in office
         qi("totalPay").innerText = sumCells(".midSum");
+
+    handelPostActivitySumAdditions();
+}
+function handelPostActivitySumAdditions() {
+    if (!qi("totalPay"))//for office
+    {
+        handelBossCommitment();
+    } else { // for not office
+        handelRebateVAT();
+    }
+}
+
+/**
+ * Subtract bosses pre commitment if tag is with name
+ * Tag: {הסכם הנהלה}
+ * Only for office
+ */
+function handelBossCommitment() {
+    let debtRow = qs('#debtRow');
+    if (debtRow) {
+        debtRow.remove();
+        qi("totalActivityPay").innerText = sumCells(".activityPay input");
+    }
+
+    let name = qs("#payCalcName input").value;
+    let debtTag = getTagFromListOption(name, 'payCalcName');
+    if (debtTag == '{הסכם הנהלה}') {
+        let debtValMax = getConstValue(debtTag);
+        let activitySum = sumCells(".activityPay input");
+        let debtVal = activitySum > debtValMax * -1 ? debtValMax : activitySum * -1;
+        if (debtVal == 0) return;
+        let tagName = debtTag.replace('{', '').replace('}', '');
+
+        let rowNum = addRow();
+        qs(`[data-rownum='${rowNum}']`).id = 'debtRow';
+        qs(`[data-rownum='${rowNum}']`).classList.add('autoAddedRow');
+        qs(`[data-rownum='${rowNum}'] .spacetime input[type=date]`).valueAsDate = new Date();
+        qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach((input) => input.value = '-');
+        qs(`[data-rownum='${rowNum}'] .activityType input`).value = 'אחר';
+        qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
+        qs(`[data-rownum='${rowNum}'] .seniority input`).value = tagName;
+        qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute("title", tagName);
+        qs(`[data-rownum='${rowNum}'] .distance input`).value = '';
+        qs(`[data-rownum='${rowNum}'] .activityPay input`).value = debtVal;
+        qsa(`[data-rownum='${rowNum}'] input`).forEach(input => input.readOnly = true);
+        qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute("list");
+        qs(`[data-rownum='${rowNum}'] .seniority input`).classList.remove("invalidList");
+
+        qi("totalActivityPay").innerText = sumCells(".activityPay input");
+    }
+}
+
+/**
+ * Add VAT if tag is with name
+ * Tags: {תוספת מע"מ חלקית} {תוספת מע"מ}
+ * Not for office
+ */
+function handelRebateVAT() {
+    //remove old if exists and rest sums
+    let vatRow = qs('#vatRow');
+    if (vatRow) {
+        vatRow.remove();
+        qi("totalActivityPay").innerText = sumCells(".activityPay input");
+        qi("totalTravelPay").innerText = sumCells(".travelPay");
+        qi("totalPay").innerText = sumCells(".midSum");
+    }
+
+    let name = qs("#payCalcName input").value;
+    let vatSupTag = getTagFromListOption(name, 'payCalcName');
+    if (vatSupTag) {
+        let vatSup = vatSupTag.includes('חלקית') ? getConstValue('תוספת מע"מ חלקית') : getConstValue('תוספת מע"מ');
+        let totVAT = Math.round(vatSup * (sumCells(".activityPay input") + sumCells(".travelPay")));
+        let tagName = vatSupTag.replace('{', '').replace('}', '');
+
+        let rowNum = addRow();
+        qs(`[data-rownum='${rowNum}']`).id = 'vatRow';
+        qs(`[data-rownum='${rowNum}']`).classList.add('autoAddedRow');
+        qs(`[data-rownum='${rowNum}'] .spacetime input[type=date]`).valueAsDate = new Date();
+        qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach((input) => input.value = '-');
+        qs(`[data-rownum='${rowNum}'] .activityType input`).value = 'אחר';
+        qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
+        qs(`[data-rownum='${rowNum}'] .seniority input`).value = tagName;
+        qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute("title", tagName);
+        qs(`[data-rownum='${rowNum}'] .distance input`).value = '';
+        qs(`[data-rownum='${rowNum}'] .activityPay input`).value = totVAT;
+        qsa(`[data-rownum='${rowNum}'] input`).forEach(input => input.readOnly = true);
+        qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute("list");
+        qs(`[data-rownum='${rowNum}'] .seniority input`).classList.remove("invalidList");
+
+        qi("totalActivityPay").innerText = sumCells(".activityPay input");
+        qi("totalTravelPay").innerText = sumCells(".travelPay");
+        qi("totalPay").innerText = sumCells(".midSum");
+    }
 }
 
 /**
@@ -360,14 +461,14 @@ function addEventListeners() {
     qsa("tbody [type=checkbox]").forEach(function (e) {
         e.addEventListener("change", payPerKm);
     });
-    qsa("#payCalc .activityPay").forEach(function (e) {
-        e.addEventListener("keyup", function () {
-            qi("totalActivityPay").innerText = sumCells(
-                ".activityPay input"
-            );
-            if (qi("totalPay"))//not for office
-                qi("totalPay").innerText = sumCells(".midSum");
-        });
+    action("#payCalc .activityPay", "change", (e) => {//keyup,
+        qi("totalActivityPay").innerText = sumCells(
+            ".activityPay input"
+        );
+        if (qi("totalPay"))//not for office
+            qi("totalPay").innerText = sumCells(".midSum");
+        //if (e.type === 'change')
+        handelPostActivitySumAdditions();
     });
     qsa("[list]").forEach((e) => {
         e.addEventListener("change", isFromList);
@@ -401,6 +502,7 @@ function addEventListeners() {
         qi("receipt").addEventListener("change", (e) => {
             qi("receiptNotice").classList.remove("hide");
         });
+    action("#payCalcName input", 'change', handelPostActivitySumAdditions);
 }
 //#endregion
 
@@ -466,6 +568,8 @@ function isTextNotEmpty(event) {
     showErrorMsg();
 }
 
+//#endregion
+
 function addStyle(clone, selector, styleName, style) {
     clone.querySelectorAll(selector).forEach((e) => {
         e.style[styleName] = style;
@@ -473,7 +577,24 @@ function addStyle(clone, selector, styleName, style) {
 }
 
 async function postData(formData, webhook) {
-const response = await fetch(webhook, {
+    let submitByDay = getValue(1, constValCol);
+    let today = new Date();
+    let monthTab =
+        today.getDate() > submitByDay
+            ? today.getMonth() + 1
+            : today.getMonth();
+    if (monthTab == 0) monthTab = 12;
+    let targetSheetRange = `${monthTab}!A1:N900`;
+    formData.append("range", targetSheetRange);
+
+    let year = today.getFullYear();
+    //When new year but still reporting Dec.
+    if (today.getDate() < submitByDay && today.getMonth() == 0)
+        year = year - 1;
+    let reportDate = `${monthTab}/${year}`;
+    formData.append("reportDate", reportDate);
+
+    const response = await fetch(webhook, {
         method: "POST",
         cache: "no-store",
         body: formData
@@ -525,8 +646,8 @@ function cl(txt) {
  * @param {any} func function name to execute
  */
 function action(selector, events, func) {
-    qsa(selector).forEach(el => 
-        events.replaceAll(" ","").split(",").forEach(e =>
+    qsa(selector).forEach(el =>
+        events.replaceAll(" ", "").split(",").forEach(e =>
             el.addEventListener(e, func))
     );
 }
