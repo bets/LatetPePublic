@@ -1,4 +1,4 @@
-/* version 20230515-1126 */
+/* version 20230921-1700 */
 @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
 
 :root {
@@ -136,28 +136,31 @@ table [type="text"],
 table [type="search"] {
     width: 100px;
 }
+
 .sInput [type="text"],
 .sInput [type="search"] {
     width: 70px;
 }
+
 .lInput [type="text"],
 .lInput [type="search"] {
     width: 180px;
 }
 
-.smallCol{
-    max-width:60px;
+.smallCol {
+    max-width: 60px;
 }
 
 .minInput input {
     max-width: 60px;
-    margin:0 9px;
+    margin: 0 9px;
 }
 
 input[type="checkbox"] {
     accent-color: var(--th-color);
     filter: brightness(140%);
 }
+
 .okEmpty input {
     box-shadow: 0px 0px 2px 0px rgba(0, 0, 0, 0.1);
 }
@@ -225,6 +228,10 @@ input[type="checkbox"] {
 
 #payCalc .skipSum * {
     color: lightgray;
+}
+
+.autoAddedRow *{
+    background-color: #fdfdf2;
 }
 
 /* Loading */
