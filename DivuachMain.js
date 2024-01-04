@@ -1,4 +1,4 @@
-// version 20230921 - 1700
+// version 20240104 - 1300
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -13,6 +13,8 @@ const constNameCol = 9;//O
 const constValCol = 10;//P
 const cancelPayNameCol = 11;//Q
 const cancelPayValCol = 12;//R
+
+function isOffice() { return !!officeAdd; }
 
 // GET GOOGLE SHEET DATA
 google.charts.load("current", { packages: ["corechart"] });
@@ -114,6 +116,30 @@ function addRow(e) {
     if (e && e.type == "keypress" && e.key == "Enter")//only when add new row and not for VAT row (and like)
         [...qsa("#payCalc [type='date']")].pop().focus();
     return rowNum;
+}
+
+/**
+ * Remove a table row
+ * @param {any} e element or event
+ * @param {any} ask when true (defualt), user confirm is needed
+ * @returns
+ */
+function removeRow(e, ask = true) {
+    if (ask) if (!confirm("בטוח למחוק?")) return;
+    qp("data-rownum", getRowNum(e)).remove();
+    setNewRowNum();
+    handelSingalActivitySup();
+    addEventListeners();
+    qi("totalActivityPay").innerText = sumCells(".activityPay input");
+    if (isOffice()) {
+        qi("totalFual").innerText = sumCells(".distance:not(.skipSum) [type=text]");
+        qi("totalDiedTime").innerText = sumCells("td:not(.skipSum) .distancePay");
+    } else {
+        qi("totalTravelPay").innerText = sumCells(".travelPay");
+        qi("totalPay").innerText = sumCells(".midSum");
+    }
+    handelPostActivitySumAdditions();
+    if (ask) saveToStorage();
 }
 
 function setNewRowNum() {
@@ -299,7 +325,7 @@ function payPerActivity(e, addSup = null) {
     handelPostActivitySumAdditions();
 }
 function handelPostActivitySumAdditions() {
-    if (!qi("totalPay"))//for office
+    if (isOffice())//for office
     {
         handelBossCommitment();
     } else { // for not office
@@ -353,7 +379,7 @@ function handelBossCommitment() {
  * Not for office
  */
 function handelRebateVAT() {
-    //remove old if exists and rest sums
+    //remove old if exists and reset sums
     let vatRow = qs('#vatRow');
     if (vatRow) {
         vatRow.remove();
@@ -455,11 +481,13 @@ function addEventListeners() {
     qsa(".activity input").forEach(function (e) {
         e.addEventListener("change", payPerActivity);
     });
-    qsa(".distance input").forEach(function (e) {
-        e.addEventListener("keyup", payPerKm);
+    action(".distance input", "keyup", (e) => {
+        payPerKm(e);
+        handelPostActivitySumAdditions();
     });
-    qsa("tbody [type=checkbox]").forEach(function (e) {
-        e.addEventListener("change", payPerKm);
+    action("tbody [type=checkbox]", "change", (e) => {
+        payPerKm(e);
+        handelPostActivitySumAdditions();
     });
     action("#payCalc .activityPay", "change", (e) => {//keyup,
         qi("totalActivityPay").innerText = sumCells(
@@ -640,10 +668,10 @@ function cl(txt) {
     console.log(txt);
 }
 /**
- * Add event listener to element, works with singal or many elements & events
- * @param {string} selector selector of one or more elements
+ * Add event listener to element, works with singal or many selectors, elements & events
+ * @param {string} selector selector/s of one or more elements
  * @param {string} events event names separated by comma
- * @param {any} func function name to execute
+ * @param {any} func function or function name to execute
  */
 function action(selector, events, func) {
     qsa(selector).forEach(el =>
