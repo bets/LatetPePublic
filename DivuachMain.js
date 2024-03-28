@@ -1,6 +1,7 @@
 // version 20240328 - 1340
 
 //remove wordpress css files
+document.querySelector("#astra-theme-css-inline-css").remove();
 var links = document.querySelectorAll('link[rel="stylesheet"]');
 links.forEach(function (link) {
     if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
