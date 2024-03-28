@@ -1,4 +1,4 @@
-/* version 20230921-1700 */
+/* version 20240328-1340 */
 @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
 
 :root {
@@ -44,14 +44,19 @@
     width: 7em;
 }
 
+#outTableInput span {
+    display: inline-block;
+    min-width: 180px;
+}
+
 #outTableInput input {
     border: 0;
     border-bottom: 1px lightgray solid !important;
 }
 
-    #outTableInput input[type=number] {
-        width: 4em;
-    }
+#outTableInput input[type=number] {
+    width: 4em;
+}
 
 #send {
     padding: 0.5em 2em;
@@ -91,6 +96,10 @@
 #payCalc input,
 #payCalc td {
     text-align: center;
+}
+
+.alignRight {
+    text-align: right !important;
 }
 
 #payCalc table {
@@ -230,8 +239,18 @@ input[type="checkbox"] {
     color: lightgray;
 }
 
-.autoAddedRow *{
+.autoAddedRow * {
     background-color: #fdfdf2;
+}
+
+.smallText {
+    font-size: 0.8em;
+    font-weight: 400;
+}
+
+/* Disable accessibility plugin in wordpress */
+#pojo-a11y-toolbar {
+    display: none !important;
 }
 
 /* Loading */
