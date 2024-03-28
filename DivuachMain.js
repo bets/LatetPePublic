@@ -1,4 +1,4 @@
-// version 20240104 - 1300
+// version 20240104 - 1340
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -46,6 +46,7 @@ function handleQueryResponse(re) {
     rowClone = qs("#payCalc tbody tr").cloneNode(true);
     setNewRowNum();
     restoreFromStorage();
+    addEventListenersOnce()
     addEventListeners();
 }
 
@@ -183,6 +184,9 @@ function makeSelect(options, target, isId) {
 //#endregion
 
 //#region Local Storage
+function saveToStorageDelay() {
+    setTimeout(saveToStorage, 1000);
+}
 function saveToStorage() {
     qsa("#payCalc input").forEach((el) => {
         if (el.type == "checkbox") {
@@ -246,46 +250,10 @@ function payPerActivity(e, addSup = null) {
     let isCustomActivity = activityTypeKey == "אחר";
     // cl(e.target)
     if (addSup == null && e.target.parentElement.classList.contains("activityType")) {
-        qs(
-            `[data-rownum='${rowNum}'] .activityPay input`
-        ).readOnly = !isCustomActivity;
-        qs(
-            `[data-rownum='${rowNum}'] .activityPay input`
-        ).value = isCustomActivity ? "" : 0;
         if (isCustomActivity) {
-            qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
-                "placeholder",
-                "שם הפעילות"
-            );
-            qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute(
-                "list"
-            );
-            qs(
-                `[data-rownum='${rowNum}'] .seniority input`
-            ).classList.remove("invalidList");
-            qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
-            qs(
-                `[data-rownum='${rowNum}'] .activityAmount input`
-            ).readOnly = true;
-            qs(
-                `[data-rownum='${rowNum}'] .activityAmount input`
-            ).classList.remove("invalidList");
+            setAsCustomRow(rowNum);
         } else {
-            qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
-                "placeholder",
-                "נא לבחור"
-            );
-            qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
-                "list",
-                "seniorityList"
-            );
-            qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = "";
-            qs(
-                `[data-rownum='${rowNum}'] .activityAmount input`
-            ).readOnly = false;
-            qs(
-                `[data-rownum='${rowNum}'] .activityPay input`
-            ).classList.remove("invalidPattern");
+            setAsRegularRow(rowNum);
         }
         showErrorMsg();
     }
@@ -314,16 +282,75 @@ function payPerActivity(e, addSup = null) {
             payPerKm(e);
         } else
             qs(`[data-rownum='${rowNum}'] .distance input`).readOnly = false;
+    } else {//only office
+        if (qs(`[data-rownum='${rowNum}'] .duringOffice`) && qs(`[data-rownum='${rowNum}'] .duringOffice`).checked) { //first check is temp util add .duringOffice to page
+            payRowActivity = 0;
+        }
     }
 
     qs(`[data-rownum='${rowNum}'] .activityPay input`).value = payRowActivity;
 
+    payAndAdditionSums();
+}
+
+function setAsRegularRow(rowNum) {
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).readOnly = true;
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).value = 0;
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
+        "placeholder",
+        "נא לבחור"
+    );
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
+        "list",
+        "seniorityList"
+    );
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = "";
+    qs(
+        `[data-rownum='${rowNum}'] .activityAmount input`
+    ).readOnly = false;
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).classList.remove("invalidPattern");
+}
+
+function setAsCustomRow(rowNum) {
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).readOnly = false;
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).value = "";
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
+        "placeholder",
+        "שם הפעילות"
+    );
+    qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute(
+        "list"
+    );
+    qs(
+        `[data-rownum='${rowNum}'] .seniority input`
+    ).classList.remove("invalidList");
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
+    qs(
+        `[data-rownum='${rowNum}'] .activityAmount input`
+    ).readOnly = true;
+    qs(
+        `[data-rownum='${rowNum}'] .activityAmount input`
+    ).classList.remove("invalidList");
+}
+
+function payAndAdditionSums() {
     qi("totalActivityPay").innerText = sumCells(".activityPay input");
-    if (qi("totalPay"))//not in office
+    if (qi("totalPay"))//not for office
         qi("totalPay").innerText = sumCells(".midSum");
 
     handelPostActivitySumAdditions();
 }
+
 function handelPostActivitySumAdditions() {
     if (isOffice())//for office
     {
@@ -464,73 +491,65 @@ function sumCells(selector) {
 //#endregion
 
 //#region EVENTS
+function addEventListenersOnce() {
+    //remove wordpress css files
+    document.addEventListener("DOMContentLoaded", function () {
+        var links = document.querySelectorAll('link[rel="stylesheet"]');
+        links.forEach(function (link) {
+            if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
+                link.remove();
+            }
+        });
+    });
+
+    action("#send", "click", send);
+    action("#saveI", "mouseenter,mouseleave", popSaveExplain);
+    action("#clearStorageBtn", "click", clearStorage);
+    if (qs("#receipt"))//not for office
+    {
+        action("#receipt", "change", isReceiptAttached);
+        action("#receipt", "change", unhideReceiptNotice);
+    }
+}
+
 function addEventListeners() {
-    qsa("input").forEach(function (e) {
-        e.addEventListener("change", () => setTimeout(saveToStorage, 1000));
-    });
-    qi("clearStorageBtn").addEventListener("click", clearStorage);
-    qi("saveI").addEventListener("mouseenter", () => qi("saveExplain").show());
-    qi("saveI").addEventListener("mouseleave", () =>
-        qi("saveExplain").close()
-    );
+    action("input", 'change', saveToStorageDelay);
     action("#addRow", "click, keypress", addRow);
-    qsa(".removeRow").forEach(function (e) {
-        e.addEventListener("click", removeRow);
-    });
-    qs("#send").addEventListener("click", send);
-    qsa(".activity input").forEach(function (e) {
-        e.addEventListener("change", payPerActivity);
-    });
-    action(".distance input", "keyup", (e) => {
-        payPerKm(e);
-        handelPostActivitySumAdditions();
-    });
-    action("tbody [type=checkbox]", "change", (e) => {
-        payPerKm(e);
-        handelPostActivitySumAdditions();
-    });
-    action("#payCalc .activityPay", "change", (e) => {//keyup,
-        qi("totalActivityPay").innerText = sumCells(
-            ".activityPay input"
-        );
-        if (qi("totalPay"))//not for office
-            qi("totalPay").innerText = sumCells(".midSum");
-        //if (e.type === 'change')
-        handelPostActivitySumAdditions();
-    });
-    qsa("[list]").forEach((e) => {
-        e.addEventListener("change", isFromList);
-    });
-    qsa("#payCalc [type='date']").forEach((e) => {
-        e.addEventListener("change", checkDate);
-    });
-    qsa("#payCalc .spacetime input").forEach((e) => {
-        e.addEventListener("change", (el) => {
-            let rowNum = getRowNum(el.target);
-            let spacetime = [...qsa(`[data-rownum='${rowNum}'] .spacetime input`)].map((x) => x.value).join();
-            qs(`[data-rownum='${rowNum}']`).dataset.spacetime = spacetime;
-        });
-    });
-    // next 2 must be bound after similer selector events so happends after
-    qsa(".spacetime input").forEach(function (e) {
-        e.addEventListener("change", handelSingalActivitySup);
-    });
-    qsa(".activity input").forEach(function (e) {
-        e.addEventListener("change", handelSingalActivitySup);
-    });
-    if (qs("#receipt"))//not for office
-        qs("#receipt").addEventListener("change", isReceiptAttached);
-    qsa("[pattern]").forEach((e) => {
-        e.addEventListener("change", isPatternMatch);
-    });
-    qsa("#payCalc .notEmpty input").forEach((e) => {
-        e.addEventListener("change", isTextNotEmpty);
-    });
-    if (qs("#receipt"))//not for office
-        qi("receipt").addEventListener("change", (e) => {
-            qi("receiptNotice").classList.remove("hide");
-        });
+    action(".removeRow", "click", removeRow);
+    action(".activity input", "change", payPerActivity);
+
+    action(".distance input", "keyup", payPerKm);
+    action(".distance input", "keyup", handelPostActivitySumAdditions);
+    action("tbody [type=checkbox]", "change", payPerKm);
+    action("tbody [type=checkbox]", "change", handelPostActivitySumAdditions);
+
+    action("#payCalc .activityPay", "change", payAndAdditionSums);
+    action("[list]", "change", isFromList);
+    action("#payCalc [type='date']", "change", checkDate);
+    action(".spacetime input", "change", spacetimeUpdate);
+    // must be bound after spacetimeUpdate so happends after
+    action(".activity input", "change", handelSingalActivitySup);
+
+    action("[pattern]", "change", isPatternMatch);
+    action("#payCalc .notEmpty input", "change", isTextNotEmpty);
     action("#payCalcName input", 'change', handelPostActivitySumAdditions);
+}
+
+function popSaveExplain(event) {
+    if (event.type === 'mouseenter') {
+        qi("saveExplain").show();
+    } else {
+        qi("saveExplain").close();
+    }
+}
+function spacetimeUpdate(e) {
+    let rowNum = getRowNum(e.target);
+    let spacetime = [...qsa(`[data-rownum='${rowNum}'] .spacetime input`)].map((x) => x.value).join();
+    qs(`[data-rownum='${rowNum}']`).dataset.spacetime = spacetime;
+    handelSingalActivitySup();
+}
+function unhideReceiptNotice() {
+    qi("receiptNotice").classList.remove("hide");
 }
 //#endregion
 
@@ -669,13 +688,14 @@ function cl(txt) {
 }
 /**
  * Add event listener to element, works with singal or many selectors, elements & events
- * @param {string} selector selector/s of one or more elements
- * @param {string} events event names separated by comma
- * @param {any} func function or function name to execute
+ * @param {string} selector element selector/s, comma separated
+ * @param {string} events event name/s, comma separated 
+ * @param {any} func one function or function name to execute
  */
 function action(selector, events, func) {
     qsa(selector).forEach(el =>
-        events.replaceAll(" ", "").split(",").forEach(e =>
-            el.addEventListener(e, func))
-    );
+        events.replaceAll(" ", "").split(",").forEach(e => {
+            el.removeEventListener(e, func);
+            el.addEventListener(e, func);
+        }));
 }
