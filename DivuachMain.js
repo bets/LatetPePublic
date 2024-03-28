@@ -493,7 +493,7 @@ function sumCells(selector) {
 //#region EVENTS
 function addEventListenersOnce() {
     //remove wordpress css files
-    document.addEventListener("load", function () {
+    document.addEventListener("DOMContentLoaded", function () {
         var links = document.querySelectorAll('link[rel="stylesheet"]');
         links.forEach(function (link) {
             if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
