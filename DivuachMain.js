@@ -1,4 +1,4 @@
-// version 20240104 - 1340
+// version 20240328 - 1240
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -46,7 +46,7 @@ function handleQueryResponse(re) {
     rowClone = qs("#payCalc tbody tr").cloneNode(true);
     setNewRowNum();
     restoreFromStorage();
-    addEventListenersOnce()
+    addEventListenersOnce();
     addEventListeners();
 }
 
@@ -493,7 +493,7 @@ function sumCells(selector) {
 //#region EVENTS
 function addEventListenersOnce() {
     //remove wordpress css files
-    document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("load", function () {
         var links = document.querySelectorAll('link[rel="stylesheet"]');
         links.forEach(function (link) {
             if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
