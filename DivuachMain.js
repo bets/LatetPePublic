@@ -1,4 +1,13 @@
-// version 20240328 - 1240
+// version 20240328 - 1340
+
+//remove wordpress css files
+var links = document.querySelectorAll('link[rel="stylesheet"]');
+links.forEach(function (link) {
+    if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
+        link.remove();
+    }
+});
+
 // CONSTANTS
 const nameCol = 0;//A
 const mailCol = 1;//B
@@ -293,30 +302,6 @@ function payPerActivity(e, addSup = null) {
     payAndAdditionSums();
 }
 
-function setAsRegularRow(rowNum) {
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).readOnly = true;
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).value = 0;
-    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
-        "placeholder",
-        "נא לבחור"
-    );
-    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
-        "list",
-        "seniorityList"
-    );
-    qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = "";
-    qs(
-        `[data-rownum='${rowNum}'] .activityAmount input`
-    ).readOnly = false;
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).classList.remove("invalidPattern");
-}
-
 function setAsCustomRow(rowNum) {
     qs(
         `[data-rownum='${rowNum}'] .activityPay input`
@@ -341,6 +326,30 @@ function setAsCustomRow(rowNum) {
     qs(
         `[data-rownum='${rowNum}'] .activityAmount input`
     ).classList.remove("invalidList");
+}
+
+function setAsRegularRow(rowNum) {
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).readOnly = true;
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).value = 0;
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
+        "placeholder",
+        "נא לבחור"
+    );
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute(
+        "list",
+        "seniorityList"
+    );
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = "";
+    qs(
+        `[data-rownum='${rowNum}'] .activityAmount input`
+    ).readOnly = false;
+    qs(
+        `[data-rownum='${rowNum}'] .activityPay input`
+    ).classList.remove("invalidPattern");
 }
 
 function payAndAdditionSums() {
@@ -492,16 +501,6 @@ function sumCells(selector) {
 
 //#region EVENTS
 function addEventListenersOnce() {
-    //remove wordpress css files
-    document.addEventListener("DOMContentLoaded", function () {
-        var links = document.querySelectorAll('link[rel="stylesheet"]');
-        links.forEach(function (link) {
-            if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
-                link.remove();
-            }
-        });
-    });
-
     action("#send", "click", send);
     action("#saveI", "mouseenter,mouseleave", popSaveExplain);
     action("#clearStorageBtn", "click", clearStorage);
