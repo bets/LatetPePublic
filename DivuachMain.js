@@ -1,28 +1,41 @@
-// version 20240328 - 1340
+// version 20240330 - 2330
 
 //remove wordpress css files
-document.querySelector("#astra-theme-css-inline-css").remove();
-var links = document.querySelectorAll('link[rel="stylesheet"]');
-links.forEach(function (link) {
-    if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
-        link.remove();
-    }
-});
+if (location.hostname !== "localhost") {
+    var styles = document.querySelectorAll('style');
+    styles.forEach(function (style) {
+        style.remove();
+    });
+    //if (document.querySelector("#astra-theme-css-inline-css")) {
+    //    document.querySelector("#astra-theme-css-inline-css").remove();}
+
+    var links = document.querySelectorAll('link[rel="stylesheet"]');
+    links.forEach(function (link) {
+        if (link.getAttribute('href') !== 'https://bets.github.io/LatetPePublic/DivuachMain.css') {
+            link.remove();
+        }
+    });
+}
 
 // CONSTANTS
-const nameCol = 0;//A
-const mailCol = 1;//B
-const kmCol = 2;//D
-const kmPayCol = 3;//E
-const seniorityGroupCol = 4;//G
-const activityCol = 5;//J
-const seniority1Col = 6;//K
-const seniority6Col = 7;//L
-const seniority26Col = 8;//M
-const constNameCol = 9;//O
-const constValCol = 10;//P
-const cancelPayNameCol = 11;//Q
-const cancelPayValCol = 12;//R
+
+//The number matches the index (place) in setQuery("select A,B..
+//The commented letter matches the column in the sheet
+var iColName = 0;
+const nameCol = iColName++;//A
+const mailCol = iColName++;//B
+const monthWorkDays = iColName++;//C - only office
+const kmCol = iColName++;//E
+const kmPayCol = iColName++;//F
+const seniorityGroupCol = iColName++;//G
+const activityCol = iColName++;//J
+const seniority1Col = iColName++;//K
+const seniority6Col = iColName++;//L
+const seniority26Col = iColName++;//M
+const constNameCol = iColName++;//O
+const constValCol = iColName++;//P
+const cancelPayNameCol = iColName++;//Q
+const cancelPayValCol = iColName;//R
 
 function isOffice() { return !!officeAdd; }
 
@@ -32,7 +45,7 @@ google.charts.setOnLoadCallback(function () {
     var query = new google.visualization.Query(
         `https://docs.google.com/spreadsheets/d/${sourceSheetId}/gviz/tq`
     );
-    query.setQuery("select A,B,D,E,G,J,K,L,M,O,P,Q,R");
+    query.setQuery("select A,B,C,E,F,G,J,K,L,M,O,P,Q,R");
     query.send(handleQueryResponse);
 });
 var data;
@@ -58,6 +71,10 @@ function handleQueryResponse(re) {
     restoreFromStorage();
     addEventListenersOnce();
     addEventListeners();
+
+    if (isOffice()) {
+        setOfficeWorkDays();
+    }
 }
 
 // HANDEL DATA FROM SHEETS
@@ -411,6 +428,23 @@ function handelBossCommitment() {
 }
 
 /**
+ * Set expected work days by name
+ * Subtract sick, vacation... days used
+ */
+function setOfficeWorkDays() {
+    let name = qs("#payCalcName input").value;
+    if (name == "") return;
+
+    let workDays = parseInt(getCol(nameCol, monthWorkDays).find((x) => x.key.includes(name)).val);
+    workDays -= parseInt(qi("vacationDays").value);
+    workDays -= parseInt(qi("sickDays").value);
+    workDays -= parseInt(qi("armyDays").value);
+    workDays -= parseInt(qi("missDays").value);
+
+    qi("workDays").value = workDays;
+}
+
+/**
  * Add VAT if tag is with name
  * Tags: {תוספת מע"מ חלקית} {תוספת מע"מ}
  * Not for office
@@ -505,8 +539,11 @@ function addEventListenersOnce() {
     action("#send", "click", send);
     action("#saveI", "mouseenter,mouseleave", popSaveExplain);
     action("#clearStorageBtn", "click", clearStorage);
-    if (qs("#receipt"))//not for office
-    {
+
+    if (isOffice()) {
+        action("#payCalcName input", 'change', setOfficeWorkDays);
+        action(".teamData [type='number']", 'change', setOfficeWorkDays);
+    } else {
         action("#receipt", "change", isReceiptAttached);
         action("#receipt", "change", unhideReceiptNotice);
     }
