@@ -1,13 +1,11 @@
 // version 20240330 - 2330
 
-//remove wordpress css files
+//remove wordpress css
 if (location.hostname !== "localhost") {
     var styles = document.querySelectorAll('style');
     styles.forEach(function (style) {
         style.remove();
     });
-    //if (document.querySelector("#astra-theme-css-inline-css")) {
-    //    document.querySelector("#astra-theme-css-inline-css").remove();}
 
     var links = document.querySelectorAll('link[rel="stylesheet"]');
     links.forEach(function (link) {
@@ -291,8 +289,8 @@ function payPerActivity(e, addSup = null) {
     )
         return;
     let singalCost = getValue(
-        parseInt(activityTypeRow) - 1,
-        parseInt(seniorityCol) + 5
+        parseInt(activityTypeRow) - 1,//row
+        parseInt(seniorityCol) + activityCol//col
     );
     // console.log(`type ${singalCost}, Vetek ${seniorityCol}, Amount ${activityAmount}`);
     let payRowActivity = parseInt(activityAmount) * singalCost;
