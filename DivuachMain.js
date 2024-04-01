@@ -548,7 +548,7 @@ function addEventListenersOnce() {
 }
 
 function addEventListeners() {
-    action("input", 'change', saveToStorageDelay);
+    action(".tableContainer input", 'change', saveToStorageDelay);
     action("#addRow", "click, keypress", addRow);
     action(".removeRow", "click", removeRow);
     action(".activity input", "change", payPerActivity);
