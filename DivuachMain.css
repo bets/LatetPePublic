@@ -1,4 +1,4 @@
-/* version 20240328-1340 */
+/* version 20240812-1300 */
 @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
 
 :root {
@@ -41,7 +41,7 @@
     margin: 0.5em;
     font-weight: bold;
     display: inline-block;
-    width: 7em;
+    width: 7.4em;
 }
 
 #outTableInput span {
@@ -54,8 +54,21 @@
     border-bottom: 1px lightgray solid !important;
 }
 
-#outTableInput input[type=number] {
-    width: 4em;
+    #outTableInput input[type=number] {
+        width: 4em;
+    }
+
+#payCalc input,
+#payCalc td {
+    text-align: center;
+}
+
+input:not([value=""]):not([readonly]) {
+    box-shadow: 0px 1px 0px 0px rgba(0,0,0,0.1);
+}
+
+input[value=""]:not(:read-only), input[value="0"]:not(:read-only) {
+    box-shadow: 0px 0px 2px 0px rgba(0, 0, 0, 0.1);
 }
 
 #send {
@@ -91,11 +104,6 @@
 
 .removeRow {
     color: red;
-}
-
-#payCalc input,
-#payCalc td {
-    text-align: center;
 }
 
 .alignRight {
@@ -170,10 +178,6 @@ input[type="checkbox"] {
     filter: brightness(140%);
 }
 
-.okEmpty input {
-    box-shadow: 0px 0px 2px 0px rgba(0, 0, 0, 0.1);
-}
-
 #payCalc tfoot {
     font-weight: bold;
 }
@@ -216,16 +220,17 @@ input[type="checkbox"] {
     margin-right: 0.5em;
 }
 
-#payCalc #saveInfo #clearStorageBtn {
+#payCalc .smallBtn {
     margin-top: 6px;
     padding: 2px 4px;
     background-color: lightgray; /*var(--th-color); */
     border-radius: 4px;
     cursor: pointer;
     filter: brightness(115%);
+    border: none;
 }
 
-    #payCalc #saveInfo #clearStorageBtn:hover {
+    #payCalc .smallBtn:hover {
         filter: brightness(110%);
     }
 
@@ -235,7 +240,7 @@ input[type="checkbox"] {
     border-color: var(--th-color);
 }
 
-#payCalc .skipSum * {
+#payCalc .skipSum input {
     color: lightgray;
 }
 
@@ -248,12 +253,39 @@ input[type="checkbox"] {
     font-weight: 400;
 }
 
+.cursorDefault {
+    cursor: default;
+}
+
+.flex-spaceBetween {
+    display: flex;
+    justify-content: space-between;
+}
+
+dialog {
+    margin: 5px auto;
+    background: white;
+    z-index: 2;
+}
+
+.close {
+    border: 1px solid lightgray;
+    border-radius: 4px;
+    padding: 3px 6px;
+    &:hover
+
+{
+    background-color: #e5e5e5;
+}
+
+}
+
 /* Disable accessibility plugin in wordpress */
 #pojo-a11y-toolbar {
     display: none !important;
 }
 
-/* Loading */
+/* Sending animation */
 #loading {
     position: absolute;
     top: 0;
