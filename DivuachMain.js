@@ -1,4 +1,4 @@
-// version 20240812 - 1300
+// version 20240822 - 1610
 
 //remove wordpress css
 if (location.hostname !== "localhost") {
@@ -73,6 +73,8 @@ function handleQueryResponse(re) {
 
     if (isOffice()) {
         setOfficeWorkDays();
+    } else {
+        qs("#prices img").src = getConstValue('תמונת תעריפון');
     }
 }
 
