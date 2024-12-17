@@ -1,7 +1,7 @@
-// version 20240822 - 1610
+// version 20241217 - 1400
 
 //remove wordpress css
-if (location.hostname !== "localhost") {
+if (!isLocalhost()) {
     var styles = document.querySelectorAll('style');
     styles.forEach(function (style) {
         style.remove();
@@ -13,6 +13,10 @@ if (location.hostname !== "localhost") {
             link.remove();
         }
     });
+}
+
+function isLocalhost() {
+    return window.location.hostname === 'localhost';
 }
 
 // CONSTANTS
@@ -152,20 +156,25 @@ function isTagInListOption(listOption, listName, tagName) {
 
 //#region CREATE ELEMENTS
 var rowClone;
+/**
+ * Addes a row and returns the number of the new row added.
+ * This will be the last row in table enless there is an auto row added (see addAutoRow())
+ * @param {any} e event that triggers the function (if originated form an event)
+ * @returns the number of the new row added
+ */
 function addRow(e) {
     if (e && e.type == "keypress" && e.key != "Enter") return;
     let clone = rowClone.cloneNode(true);
+    clone.classList.add("newRow");
     qs("#payCalc tbody").append(clone);
-    //make sure auto row is last
-    let autoAddedRow = qs('tbody .autoAddedRow');
-    if (autoAddedRow) {
-        autoAddedRow.parentNode.removeChild(autoAddedRow);
-        qs('.tableContainer tbody').appendChild(autoAddedRow);
-    }
+
     let rowNum = setNewRowNum();
     addEventListeners();
-    if (e && e.type == "keypress" && e.key == "Enter")//only when add new row and not for VAT row (and like)
-        [...qsa("#payCalc [type='date']")].pop().focus();
+
+    //only when add new row and not for autoAddedRow
+    if (e && e.type == "keypress" && e.key == "Enter")
+        [...qsa("#payCalc tr:not(.autoAddedRow) [type='date']")].pop().focus();
+
     return rowNum;
 }
 
@@ -176,32 +185,42 @@ function addRow(e) {
  * @returns
  */
 function removeRow(e, ask = true) {
-    if (ask) if (!confirm("בטוח למחוק?")) return;
+    if (ask) if (!confirm("בטוח למחוק את השורה?")) return;
     if (e instanceof Event)
         qp("data-rownum", getRowNum(e)).remove();
     else
         e.remove();
     setNewRowNum();
-    handelSingalActivitySup();
     addEventListeners();
-    qi("totalActivityPay").innerText = sumCells(".activityPay input");
     if (isOffice()) {
         qi("totalFual").innerText = sumCells(".distance:not(.skipSum) [type=text]");
         qi("totalDiedTime").innerText = sumCells("td:not(.skipSum) .distancePay");
     } else {
         qi("totalTravelPay").innerText = sumCells(".travelPay");
-        qi("totalPay").innerText = sumCells(".midSum");
     }
     handelPostActivitySumAdditions();
+    showErrorMsg();
     if (ask) saveToStorage();
 }
 
+/** Set row numbers and make sure auto rows are last*/
 function setNewRowNum() {
-    let i = 0;
-    qsa("#payCalc tbody tr").forEach(function (e) {
-        e.dataset.rownum = i++;
+    //make sure all autoAddedRow are last (but have autoRows the same order (vat/BossCommitment last))
+    qsa('tbody .autoAddedRow').forEach((row) => {
+        row.parentNode.removeChild(row);
+        qs('.tableContainer tbody').appendChild(row);
     });
-    return i - 1;
+
+    let i = 0;
+    let newRowNum = 0;
+    qsa("#payCalc tbody tr").forEach(function (el) {
+        if (el.classList.contains("newRow")) {
+            newRowNum = i;
+            el.classList.remove("newRow");
+        }
+        el.dataset.rownum = i++;
+    });
+    return newRowNum;
 }
 
 /** Create a list of options to populate an input */
@@ -287,9 +306,8 @@ function displayStorageTime() {
 /** Calculate payment for activity
  Activity has 3 prices based on seniority
  Above times the amount of the activity given that day
- If tagged so add tag value 
 */
-function payPerActivity(e, addSingalActivitySup = null) {
+function payPerActivity(e) {
     let rowNum = getRowNum(e);
     let activityTypeRow = getValFromList(rowNum, "activityType");
     let seniorityCol = getValFromList(rowNum, "seniority");
@@ -298,26 +316,13 @@ function payPerActivity(e, addSingalActivitySup = null) {
     let activityTypeKey = qs(`[data-rownum='${rowNum}'] .activityType input`)
         .value;
 
-
-    //this is to add the {תוספת בודדת} tag to the row
-    let singalSupKey = "תוספת בודדת";
-    let hasSingalSupTag = isTagInListOption(activityTypeKey, "activityType", singalSupKey);
-    //activityTag added only when:
-    qs(`[data-rownum='${rowNum}']`).dataset.tag = activityAmount == 1 && hasSingalSupTag ? singalSupKey : '';
-
-    if (
-        (!activityTypeRow || !seniorityCol || !activityAmount)
-        //&& !isCustomActivity
-    )
+    if ((!activityTypeRow || !seniorityCol || !activityAmount))
         return;
     let singalCost = getValue(
         parseInt(activityTypeRow) - 1,//row
         parseInt(seniorityCol) + activityCol//col
     );
-    // console.log(`type ${singalCost}, Vetek ${seniorityCol}, Amount ${activityAmount}`);
     let payRowActivity = parseInt(activityAmount) * singalCost;
-    if (addSingalActivitySup)
-        payRowActivity += parseInt(getConstValue(singalSupKey));
 
     let cancelPay = qs(`[data-rownum='${rowNum}'] .cancelPay input`);
     if (cancelPay) { //not in office
@@ -337,16 +342,13 @@ function payPerActivity(e, addSingalActivitySup = null) {
 
     qs(`[data-rownum='${rowNum}'] .activityPay input`).value = payRowActivity;
 
-    payAndAdditionSums();
+    handelPostActivitySumAdditions();
 }
 
 function setAsCustomRow(rowNum) {
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).readOnly = false;
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).value = "";
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).readOnly = false;
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).tabIndex = 0;
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).value = "";
     let seniorityInput = qs(`[data-rownum='${rowNum}'] .seniority input`);
     seniorityInput.setAttribute("placeholder", "שם הפעילות");
     seniorityInput.removeAttribute("list");
@@ -354,79 +356,164 @@ function setAsCustomRow(rowNum) {
     seniorityInput.value = "";
     qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
     qs(`[data-rownum='${rowNum}'] .activityAmount input`).readOnly = true;
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).tabIndex = -1;
     qs(`[data-rownum='${rowNum}'] .activityAmount input`).classList.remove("invalidList"); //if was invald before change
 }
 
 function setAsRegularRow(rowNum) {
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).readOnly = true;
-    qs(
-        `[data-rownum='${rowNum}'] .activityPay input`
-    ).value = 0;
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).readOnly = true;
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).tabIndex = -1;
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).value = 0;
     let seniorityInput = qs(`[data-rownum='${rowNum}'] .seniority input`);
     seniorityInput.setAttribute("placeholder", "נא לבחור");
     seniorityInput.setAttribute("list", "seniorityList");
-
+    seniorityInput.value = "";
+    seniorityInput.readOnly = false;
+    seniorityInput.tabIndex = 0;
     qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = "";
     qs(`[data-rownum='${rowNum}'] .activityAmount input`).readOnly = false;
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).tabIndex = 0;
     qs(`[data-rownum='${rowNum}'] .activityPay input`).classList.remove("invalidPattern"); //if was invald before change
 }
 
-function payAndAdditionSums() {
-    qi("totalActivityPay").innerText = sumCells(".activityPay input");
-    if (qi("totalPay"))//not for office
-        qi("totalPay").innerText = sumCells(".midSum");
-
-    handelPostActivitySumAdditions();
-}
 
 function handelPostActivitySumAdditions() {
-    if (isOffice())//for office
-    {
-        handelBossCommitment();
-    } else { // for not office
-        handelRebateVAT();
+    //remove auto Added Rows
+    qsa(".autoAddedRow").forEach((el) => el.remove());
+    //resum totals
+    qi("totalActivityPay").innerText = sumCells(".activityPay input");
+    if (!isOffice())
+        qi("totalPay").innerText = sumCells(".midSum");
+
+    /* Singal activity supplement */
+    const sups = singalSups();
+    if (sups > 0)
+        autoRowAddition("singalSup", `תוספת פעילות בודדת`, sups * getConstValue("תוספת בודדת"), sups);
+
+    /* 3 fridays in a month bonus */
+    const bonusTag = "בונוס שישי שלישי";
+    let bonusMonths = getMonthsWith3Fridays();
+    //for each month add auto row
+    bonusMonths.forEach((month) => autoRowAddition("fridayBonus", bonusTag + ` (${hebMonths[month]})`, getConstValue(bonusTag)));
+
+    //These additions must be last cus calculation is on top of other additions
+    let name = qs("#payCalcName input").value;
+    if (name) {
+        if (isOffice()) {
+            /* Subtract bosses pre commitment if tag is with name */
+            let debtTag = 'הסכם הנהלה';
+            if (isTagInListOption(name, 'payCalcName', debtTag)) {
+                let debtValMax = getConstValue(debtTag);
+                let activitySum = qi("totalActivityPay").innerText;
+                let debtVal = 0; // use when sum is 0 or negative
+                if (activitySum > 0)
+                    debtVal = activitySum > debtValMax * -1 ? debtValMax : activitySum * -1;
+                autoRowAddition("debtRow", debtTag, debtVal);
+            }
+        } else { // not office
+            /* Add VAT if tag is with name */
+            let vatSupTag = "";
+            if (isTagInListOption(name, 'payCalcName', 'תוספת מע"מ'))
+                vatSupTag = 'תוספת מע"מ';
+            else if (isTagInListOption(name, 'payCalcName', 'תוספת מע"מ חלקית'))
+                vatSupTag = 'תוספת מע"מ חלקית';
+
+            if (vatSupTag) {
+                let vatSup = getConstValue(vatSupTag);
+                let totVAT = Math.round(vatSup * (sumCells(".activityPay input") + sumCells(".travelPay")));
+
+                autoRowAddition("vatRow", vatSupTag, totVAT);
+            }
+        }
     }
+}
+
+/** Get all months that have at least 3 fridays */
+function getMonthsWith3Fridays() {
+    //get all the dates
+    let dates = [...qsa(".spacetime input[type='date']")].map((el) => el.value);
+    //get all the fridays
+    let fridays = dates.filter((el) => new Date(el).getDay() == 5);
+    // group fridays by month  
+    let fridaysByMonth = fridays.reduce((acc, el) => {
+        let month = new Date(el).getMonth();
+        if (!acc[month]) acc[month] = [];
+        // if acc[month] does not already have this friday so add it
+        if (!acc[month].includes(el)) acc[month].push(el);
+        return acc;
+    }, {});
+
+    //list months with at least 3 fridays
+    const monthsReturn = Object.entries(fridaysByMonth)
+        .filter(([month, fridayList]) => fridayList.length >= 3)
+        .map(([month]) => month);
+    return monthsReturn;
+}
+
+/** Check table for how many singal supplements {תוספת בודדת} are needed */
+function singalSups() {
+    let spacetimes = {};
+    [...qsa("#payCalc tbody tr:not(.autoAddedRow)")] // all rows that are not auto added
+        .filter((row) => row.querySelector(`.activityPay input`).value) // if activityPay has a value
+        .forEach((row) => {
+            let activityInput = row.querySelector(".activityType input");
+            // If their activity has {תוספת בודדת } tag
+            if (isTagInListOption(activityInput.value, "activityType", "תוספת בודדת")) {
+                // remove leading and trailing spaces and make spacetime string
+                let spacetime = [...row.querySelectorAll(`.spacetime input`)].map((x) => x.value?.trim()).join();
+                let activityAmount = row.querySelector(`.activityAmount input`).value;
+                //check if this spacetime is already in spacetimes and add activityAmount
+                if (spacetimes[spacetime])
+                    spacetimes[spacetime] += activityAmount;
+                else
+                    spacetimes[spacetime] = activityAmount;
+            }
+        });
+
+    // return how many spacetimes have the value 1
+    let singalSupSpacetimes = Object.keys(spacetimes).filter((spacetime) => spacetimes[spacetime] == 1);
+    return singalSupSpacetimes.length;
 }
 
 /**
- * Subtract bosses pre commitment if tag is with name
- * Tag: {הסכם הנהלה}
- * Only for office
+ * Auto additions to bottom of table
+ * Office - Subtract bosses pre commitment if tag {הסכם הנהלה} is with user name.
+ * Not office - Add VAT if tag {תוספת מע"מ חלקית} or {תוספת מע"מ} is with user name.
+ * All - Add bonus when user has 3 friday activities. Const = בונוס שישי שלישי.
+ * @param {string} rowId
+ * @param {string} rowDescription 
+ * @param {int} addedSumVal 
  */
-function handelBossCommitment() {
-    let debtRow = qs('#debtRow');
-    if (debtRow) {
-        debtRow.remove();
-        qi("totalActivityPay").innerText = sumCells(".activityPay input");
+function autoRowAddition(rowId, rowDescription, addedSumVal, activityAmount = 1) {
+    let rowNum = addRow();
+    qs(`[data-rownum='${rowNum}']`).id = rowId;
+    qs(`[data-rownum='${rowNum}']`).classList.add('autoAddedRow');
+    qs(`[data-rownum='${rowNum}'] .spacetime input[type=date]`).valueAsDate = new Date();
+    qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach(input => input.value = '-');
+    qs(`[data-rownum='${rowNum}'] .activityType input`).value = 'אחר';
+    qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = activityAmount;
+    qs(`[data-rownum='${rowNum}'] .seniority input`).value = rowDescription;
+    qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute("title", rowDescription);
+    qs(`[data-rownum='${rowNum}'] .seniority input`).classList.add('cursorDefault');
+    qs(`[data-rownum='${rowNum}'] .seniority`).classList.add('lInput');
+    qs(`[data-rownum='${rowNum}'] .distance input`).value = '';
+    qs(`[data-rownum='${rowNum}'] .distance input`).setAttribute("placeholder", "-");
+    qs(`[data-rownum='${rowNum}'] .activityPay input`).value = addedSumVal;
+    qsa(`[data-rownum='${rowNum}'] input`).forEach(input => { input.readOnly = true; input.tabIndex = -1; });
+    qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute("list");
+    qs(`[data-rownum='${rowNum}'] .seniority input`).classList.remove("invalidList");
+    qs(`[data-rownum='${rowNum}'] .removeRow`).innerText = '';
+
+    qi("totalActivityPay").innerText = sumCells(".activityPay input");
+    if (!isOffice()) {
+        qi("totalPay").innerText = sumCells(".midSum");
     }
 
-    let name = qs("#payCalcName input").value;
-    let debtTag = 'הסכם הנהלה';
-    if (isTagInListOption(name, 'payCalcName', 'הסכם הנהלה')) {
-        let debtValMax = getConstValue(debtTag);
-        let activitySum = sumCells(".activityPay input");
-        let debtVal = activitySum > debtValMax * -1 ? debtValMax : activitySum * -1;
-        if (debtVal == 0) return;
-
-        let rowNum = addRow();
-        qs(`[data-rownum='${rowNum}']`).id = 'debtRow';
-        qs(`[data-rownum='${rowNum}']`).classList.add('autoAddedRow');
-        qs(`[data-rownum='${rowNum}'] .spacetime input[type=date]`).valueAsDate = new Date();
-        qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach((input) => input.value = '-');
-        qs(`[data-rownum='${rowNum}'] .activityType input`).value = 'אחר';
-        qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
-        qs(`[data-rownum='${rowNum}'] .seniority input`).value = debtTag;
-        qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute("title", debtTag);
-        qs(`[data-rownum='${rowNum}'] .distance input`).value = '';
-        qs(`[data-rownum='${rowNum}'] .activityPay input`).value = debtVal;
-        qsa(`[data-rownum='${rowNum}'] input`).forEach(input => input.readOnly = true);
-        qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute("list");
-        qs(`[data-rownum='${rowNum}'] .seniority input`).classList.remove("invalidList");
-
-        qi("totalActivityPay").innerText = sumCells(".activityPay input");
-    }
+    //make sure this row is last in table and renumber them
+    let newRow = qi(rowId);
+    newRow.parentNode.removeChild(newRow);
+    qs('.tableContainer tbody').appendChild(newRow);
+    setNewRowNum();
 }
 
 /**
@@ -441,7 +528,6 @@ function handelFuel(rowNum) {
     else fuelTD.classList.add("skipSum");
     return useFuel;
 }
-
 
 /**
  * Set expected work days by name
@@ -461,85 +547,6 @@ function setOfficeWorkDays() {
 }
 
 /**
- * Add VAT if tag is with name
- * Tags: {תוספת מע"מ חלקית} {תוספת מע"מ}
- * Not for office
- */
-function handelRebateVAT() {
-    let name = qs("#payCalcName input").value;
-    let vatSupTag = "";
-    if (isTagInListOption(name, 'payCalcName', 'תוספת מע"מ'))
-        vatSupTag = 'תוספת מע"מ';
-    else if (isTagInListOption(name, 'payCalcName', 'תוספת מע"מ חלקית'))
-        vatSupTag = 'תוספת מע"מ חלקית';
-
-    if (vatSupTag) {
-        let vatRow = qs('#vatRow');
-        let rowNum;
-        if (vatRow) {
-            rowNum = getRowNum(vatRow);
-            //make sure its last
-            vatRow.parentNode.removeChild(vatRow);
-            qs('.tableContainer tbody').appendChild(vatRow);
-        }
-        else
-            rowNum = addRow();
-
-        let vatSup = getConstValue(vatSupTag);
-        let totVAT = Math.round(vatSup * (sumCells(".activityPay input") + sumCells(".travelPay")));
-        qs(`[data-rownum='${rowNum}']`).id = 'vatRow';
-        qs(`[data-rownum='${rowNum}']`).classList.add('autoAddedRow');
-        qs(`[data-rownum='${rowNum}'] .spacetime input[type=date]`).valueAsDate = new Date();
-        qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach((input) => input.value = '-');
-        qs(`[data-rownum='${rowNum}'] .activityType input`).value = 'אחר';
-        qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
-        qs(`[data-rownum='${rowNum}'] .seniority input`).value = vatSupTag;
-        qs(`[data-rownum='${rowNum}'] .seniority input`).setAttribute("title", vatSupTag);
-        qs(`[data-rownum='${rowNum}'] .distance input`).value = '';
-        qs(`[data-rownum='${rowNum}'] .activityPay input`).value = totVAT;
-        qsa(`[data-rownum='${rowNum}'] input`).forEach(input => input.readOnly = true);
-        qs(`[data-rownum='${rowNum}'] .seniority input`).removeAttribute("list");
-        qs(`[data-rownum='${rowNum}'] .seniority input`).classList.remove("invalidList");
-
-        qi("totalActivityPay").innerText = sumCells(".activityPay input");
-        qi("totalTravelPay").innerText = sumCells(".travelPay");
-        qi("totalPay").innerText = sumCells(".midSum");
-
-        setNewRowNum();
-    }
-}
-
-/**
- * Check if any row tagged with {תוספת בודדת} needs to get supplement or remove supplement if more then 1 activity at same place and day
- * Each row that has a {תוספת בודדת} tag is recalculated with PayPerActivity(rowNum, true/false - add sup)
- */
-function handelSingalActivitySup() {
-    let groupedRows = [];
-    [...qsa('#payCalc [data-rownum]')].forEach((row) => {
-        let added = false;
-        groupedRows.forEach((rowGroup) => {
-            if (rowGroup[0].dataset.spacetime == row.dataset.spacetime) {
-                added = true;
-                rowGroup.push(row);
-            }
-        });
-        if (!added)
-            groupedRows.push([row]);
-    });
-
-    groupedRows.forEach((rowGroup) => {
-        if (rowGroup.length == 1 && rowGroup[0].dataset.tag?.includes("תוספת בודדת"))
-            payPerActivity(rowGroup[0], true);
-        else {
-            rowGroup.forEach((row) => {
-                if (row.dataset.tag?.includes("תוספת בודדת"))
-                    payPerActivity(row, false);
-            });
-        }
-    });
-}
-
-/**
  * When activity type is tagged and/or something needs to change before calculation
  */
 function handelActivityTypeTagPre(e) {
@@ -553,14 +560,18 @@ function handelActivityTypeTagPre(e) {
     if (isTagInListOption(activityTypeKey, "activityType", "מוגבל ל1")) {
         qs(`[data-rownum='${rowNum}'] .activityAmount input`).value = 1;
         qs(`[data-rownum='${rowNum}'] .activityAmount input`).readOnly = true;
+        qs(`[data-rownum='${rowNum}'] .activityAmount input`).tabIndex = -1;
     }
     if (isTagInListOption(activityTypeKey, "activityType", "ללא ותק")) {
         qs(`[data-rownum='${rowNum}'] .seniority input`).value = "ללא ותק";
         qs(`[data-rownum='${rowNum}'] .seniority input`).readOnly = true;
-    } else if (qs(`[data-rownum='${rowNum}'] .seniority input`).value == "ללא ותק") {
-        qs(`[data-rownum='${rowNum}'] .seniority input`).value = "";
-        qs(`[data-rownum='${rowNum}'] .seniority input`).readOnly = false;
+        qs(`[data-rownum='${rowNum}'] .seniority input`).tabIndex = -1;
     }
+    //not sure if this is needed
+    //else if (qs(`[data-rownum='${rowNum}'] .seniority input`).value == "ללא ותק") {
+    //    qs(`[data-rownum='${rowNum}'] .seniority input`).value = "";
+    //    qs(`[data-rownum='${rowNum}'] .seniority input`).readOnly = false;
+    //}
     showErrorMsg();
 }
 
@@ -589,6 +600,7 @@ function addEventListenersOnce() {
     action("#clearStorageBtn", "click", clearStorage);
     action("#pricesBtn", "click", showPrices);
     action(".close", "click", () => qs('dialog[open]').close());
+    action("#payCalcName input", 'change', handelPostActivitySumAdditions);
 
     if (isOffice()) {
         action("#payCalcName input", 'change', setOfficeWorkDays);
@@ -611,16 +623,12 @@ function addEventListeners() {
     action("tbody [type=checkbox]", "change", payPerKm);
     action("tbody [type=checkbox]", "change", handelPostActivitySumAdditions);
 
-    action("#payCalc .activityPay", "change", payAndAdditionSums);
+    action("#payCalc .activityPay,.spacetime input", "change", handelPostActivitySumAdditions);
+
     action("[list]", "change", isFromList);
     action("#payCalc [type='date']", "change", checkDate);
-    action(".spacetime input", "change", spacetimeUpdate);
-    // must be bound after spacetimeUpdate so happends after
-    action(".activity input", "change", handelSingalActivitySup);
-
     action("[pattern]", "change", isPatternMatch);
     action("#payCalc .notEmpty input", "change", isTextNotEmpty);
-    action("#payCalcName input", 'change', handelPostActivitySumAdditions);
 }
 
 function popSaveExplain(event) {
@@ -630,14 +638,7 @@ function popSaveExplain(event) {
         qi("saveExplain").close();
     }
 }
-function spacetimeUpdate(e) {
-    let rowNum = getRowNum(e.target);
-    // remove leading and trailing spaces
-    qsa(`[data-rownum='${rowNum}'] .spacetime input[type=text]`).forEach((input) => input.value = input.value?.trim());
-    let spacetime = [...qsa(`[data-rownum='${rowNum}'] .spacetime input`)].map((x) => x.value).join();
-    qs(`[data-rownum='${rowNum}']`).dataset.spacetime = spacetime;
-    handelSingalActivitySup();
-}
+
 function unhideReceiptNotice() {
     qi("receiptNotice").classList.remove("hide");
 }
@@ -733,6 +734,7 @@ async function postData(formData, webhook) {
     if (today.getDate() < submitByDay && today.getMonth() == 0)
         year = year - 1;
     let reportDate = `${monthTab}/${year}`;
+    //reportDate = `1/2026`; // JUST FOR DEBUG!!
     formData.append("reportDate", reportDate);
 
     const response = await fetch(webhook, {
@@ -759,24 +761,37 @@ async function postData(formData, webhook) {
 }
 
 // SELECTORS
+/**  document.querySelector */
 function qs(s) {
     return document.querySelector(s);
 }
+/**  document.querySelectorAll */
 function qsa(s) {
     return document.querySelectorAll(s);
 }
+/**  document.getElementById */
 function qi(s) {
     return document.getElementById(s);
 }
+/**  document.getElementsByClassName(s)[0] */
 function qc(s) {
     return document.getElementsByClassName(s)[0];
 }
+/**  document.getElementsByClassName */
 function qca(s) {
     return document.getElementsByClassName(s);
 }
-function qp(p, n) {
-    return document.querySelector(`[${p}="${n}"]`);
+/**
+ * Select by attribute name and value
+ * querySelector(`[${attributeName}="${val}"]`)
+ * @param {any} attributeName
+ * @param {any} val
+ * @returns
+ */
+function qp(attributeName, val) {
+    return document.querySelector(`[${attributeName}="${val}"]`);
 }
+/**  console.log(txt) */
 function cl(txt) {
     console.log(txt);
 }
@@ -787,9 +802,34 @@ function cl(txt) {
  * @param {any} func one function or function name to execute
  */
 function action(selector, events, func) {
-    qsa(selector).forEach(el =>
+    qsa(selector).forEach(el => {
         events.replaceAll(" ", "").split(",").forEach(e => {
-            el.removeEventListener(e, func);
-            el.addEventListener(e, func);
-        }));
+            // Check if element has custom property _eventListeners and create it if not
+            if (!el.hasOwnProperty('_eventListeners')) {
+                el['_eventListeners'] = {};
+            }
+            // Check if the event listener is already added
+            if (!el['_eventListeners'][`${e}>${func.name}`]) {
+                el.addEventListener(e, func);
+                // Mark this event as added for this element
+                el['_eventListeners'][`${e}>${func.name}`] = true;
+            }
+        });
+    });
 }
+
+// array of month names in hebrew
+const hebMonths = [
+    "ינואר",
+    "פברואר",
+    "מרץ",
+    "אפריל",
+    "מאי",
+    "יוני",
+    "יולי",
+    "אוגוסט",
+    "ספטמבר",
+    "אוקטובר",
+    "נובמבר",
+    "דצמבר"
+];
