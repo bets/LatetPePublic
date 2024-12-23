@@ -1,4 +1,4 @@
-// version 20241217 - 1400
+// version 20241223 - 1900
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -457,21 +457,21 @@ function singalSups() {
         .filter((row) => row.querySelector(`.activityPay input`).value) // if activityPay has a value
         .forEach((row) => {
             let activityInput = row.querySelector(".activityType input");
-            // If their activity has {תוספת בודדת } tag
-            if (isTagInListOption(activityInput.value, "activityType", "תוספת בודדת")) {
-                // remove leading and trailing spaces and make spacetime string
-                let spacetime = [...row.querySelectorAll(`.spacetime input`)].map((x) => x.value?.trim()).join();
-                let activityAmount = row.querySelector(`.activityAmount input`).value;
-                //check if this spacetime is already in spacetimes and add activityAmount
-                if (spacetimes[spacetime])
-                    spacetimes[spacetime] += activityAmount;
-                else
-                    spacetimes[spacetime] = activityAmount;
+            // remove leading and trailing spaces and make spacetime string
+            let spacetime = [...row.querySelectorAll(`.spacetime input`)].map((x) => x.value?.trim()).join();
+            let activityAmount = row.querySelector(`.activityAmount input`).value;
+            //check if this spacetime is already in spacetimes and add activityAmount
+            if (spacetimes[spacetime])
+                spacetimes[spacetime].amount += parseInt(activityAmount);
+            else {
+                spacetimes[spacetime] = {};
+                spacetimes[spacetime].amount = parseInt(activityAmount);
+                // Mark if activity has {תוספת בודדת } tag
+                spacetimes[spacetime].hasTag = isTagInListOption(activityInput.value, "activityType", "תוספת בודדת");
             }
         });
-
-    // return how many spacetimes have the value 1
-    let singalSupSpacetimes = Object.keys(spacetimes).filter((spacetime) => spacetimes[spacetime] == 1);
+    // return how many spacetimes have the value 1 and the tag
+    let singalSupSpacetimes = Object.keys(spacetimes).filter((spacetime) => spacetimes[spacetime].hasTag && spacetimes[spacetime].amount == 1);
     return singalSupSpacetimes.length;
 }
 
