@@ -1,4 +1,4 @@
-// version 20241223 - 1900
+// version 20241230 - 1244
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -390,7 +390,7 @@ function handelPostActivitySumAdditions() {
     if (sups > 0)
         autoRowAddition("singalSup", `תוספת פעילות בודדת`, sups * getConstValue("תוספת בודדת"), sups);
 
-    /* 3 fridays in a month bonus */
+    /* 3 fridays with תוספת בודדת in a month bonus */
     const bonusTag = "בונוס שישי שלישי";
     let bonusMonths = getMonthsWith3Fridays();
     //for each month add auto row
@@ -428,14 +428,15 @@ function handelPostActivitySumAdditions() {
     }
 }
 
-/** Get all months that have at least 3 fridays */
+/** Get all months that have at least 3 fridays with תוספת בודדת */
 function getMonthsWith3Fridays() {
-    //get all the dates
-    let dates = [...qsa(".spacetime input[type='date']")].map((el) => el.value);
-    //get all the fridays
-    let fridays = dates.filter((el) => new Date(el).getDay() == 5);
+    //get all the relevant dates
+    let eligibleDates = [...qsa("tbody tr:not(.autoAddedRow)")].filter((row) => // not auto added
+        new Date(row.querySelector("input[type='date']").value).getDay() == 5 // is friday
+        && isTagInListOption(row.querySelector(".activityType input").value, "activityType", "תוספת בודדת") //has תוספת בודדת
+    ).map(row => row.querySelector("input[type='date']").value); // just dates
     // group fridays by month  
-    let fridaysByMonth = fridays.reduce((acc, el) => {
+    let fridaysByMonth = eligibleDates.reduce((acc, el) => {
         let month = new Date(el).getMonth();
         if (!acc[month]) acc[month] = [];
         // if acc[month] does not already have this friday so add it
