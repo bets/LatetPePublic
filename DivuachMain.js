@@ -1,4 +1,4 @@
-// version 20241230 - 1244
+// version 20250513 - 1444
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -152,6 +152,18 @@ function getTagsFromListOption(listOption, listName) {
 function isTagInListOption(listOption, listName, tagName) {
     let tags = getTagsFromListOption(listOption, listName);
     return tags?.includes(tagName) ?? false;
+}
+
+/** Check if text is in tag name in an option of a list.
+ * Using getTagsFromListOption() function.
+ * @param {string} listOption Name of the select option without the tag (tag in {culy brackets})
+ * @param {string} listName The class name togther with 'List' is the list Id -> `#${ClassName}List`
+ * @param {string} tagText The text to check for in the tag (must start with it)
+ * @returns {string} Tag text is returned
+ */
+function getTagWithTextFromListOption(listOption, listName, tagText) {
+    let tags = getTagsFromListOption(listOption, listName);
+    return tags?.find(t => t.indexOf(tagText) == 0) ?? null;
 }
 
 //#region CREATE ELEMENTS
@@ -548,6 +560,11 @@ function setOfficeWorkDays() {
 }
 
 /**
+ * When activity type is tagged with הערה and it was shown already stop showing it
+ */
+var stopShowKeyNote = [];
+
+/**
  * When activity type is tagged and/or something needs to change before calculation
  */
 function handelActivityTypeTagPre(e) {
@@ -567,6 +584,15 @@ function handelActivityTypeTagPre(e) {
         qs(`[data-rownum='${rowNum}'] .seniority input`).value = "ללא ותק";
         qs(`[data-rownum='${rowNum}'] .seniority input`).readOnly = true;
         qs(`[data-rownum='${rowNum}'] .seniority input`).tabIndex = -1;
+    }
+    let tagText = getTagWithTextFromListOption(activityTypeKey, "activityType", "הערה:");
+    if (tagText && !stopShowKeyNote.includes(activityTypeKey)) {
+        let dialog = qi("activityExplain");
+        dialog.querySelector("h3").innerText = activityTypeKey;
+        dialog.querySelector("p").innerText = tagText.replace("הערה:", "").trim();
+        dialog.showModal();
+
+        stopShowKeyNote.push(activityTypeKey);
     }
     //not sure if this is needed
     //else if (qs(`[data-rownum='${rowNum}'] .seniority input`).value == "ללא ותק") {
@@ -599,7 +625,7 @@ function addEventListenersOnce() {
     action("#send", "click", send);
     action("#saveI", "mouseenter,mouseleave", popSaveExplain);
     action("#clearStorageBtn", "click", clearStorage);
-    action("#pricesBtn", "click", showPrices);
+    action(".openDialog", "click", (ev) => qi(ev.target.dataset.dialogid).showModal());
     action(".close", "click", () => qs('dialog[open]').close());
     action("#payCalcName input", 'change', handelPostActivitySumAdditions);
 
