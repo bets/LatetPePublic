@@ -1,4 +1,4 @@
-// version 20250513 - 1444
+// version 20250616 - 1455
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -757,8 +757,8 @@ async function postData(formData, webhook) {
     formData.append("range", targetSheetRange);
 
     let year = today.getFullYear();
-    //When new year but still reporting Dec.
-    if (today.getDate() < submitByDay && today.getMonth() == 0)
+    //When new year (Jan) but still reporting Dec of last year
+    if (today.getMonth() == 0 && today.getDate() <= submitByDay) 
         year = year - 1;
     let reportDate = `${monthTab}/${year}`;
     //reportDate = `1/2026`; // JUST FOR DEBUG!!
