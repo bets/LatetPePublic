@@ -1,4 +1,4 @@
-// version 20250616 - 1455
+// version 20250707 - 1230
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -338,9 +338,9 @@ function payPerActivity(e) {
 
     let cancelPay = qs(`[data-rownum='${rowNum}'] .cancelPay input`);
     if (cancelPay) { //not in office
-        let reduceBy = "" == cancelPay.value ? 0 : getValFromList(rowNum, "cancelPay");
-        if (reduceBy) {
-            payRowActivity = payRowActivity * reduceBy;
+        let reduceTo = "" == cancelPay.value ? 0 : getValFromList(rowNum, "cancelPay");
+        if (reduceTo) {
+            payRowActivity = payRowActivity * reduceTo;
             qs(`[data-rownum='${rowNum}'] .distance input`).value = "";
             qs(`[data-rownum='${rowNum}'] .distance input`).readOnly = true;
             payPerKm(e);
@@ -446,6 +446,7 @@ function getMonthsWith3Fridays() {
     let eligibleDates = [...qsa("tbody tr:not(.autoAddedRow)")].filter((row) => // not auto added
         new Date(row.querySelector("input[type='date']").value).getDay() == 5 // is friday
         && isTagInListOption(row.querySelector(".activityType input").value, "activityType", "תוספת בודדת") //has תוספת בודדת
+        && (isOffice() || !row.querySelector(`.cancelPay input`).value)// was not a canceled event (for not office)
     ).map(row => row.querySelector("input[type='date']").value); // just dates
     // group fridays by month  
     let fridaysByMonth = eligibleDates.reduce((acc, el) => {
@@ -467,7 +468,8 @@ function getMonthsWith3Fridays() {
 function singalSups() {
     let spacetimes = {};
     [...qsa("#payCalc tbody tr:not(.autoAddedRow)")] // all rows that are not auto added
-        .filter((row) => row.querySelector(`.activityPay input`).value) // if activityPay has a value
+        .filter((row) => row.querySelector(`.activityPay input`).value // if activityPay has a value 
+            && (isOffice() || !row.querySelector(`.cancelPay input`).value)) // and is office or cancelPay with no value (canceld event no need for bonus, office has no option for cancelPay)
         .forEach((row) => {
             let activityInput = row.querySelector(".activityType input");
             // remove leading and trailing spaces and make spacetime string
@@ -493,6 +495,7 @@ function singalSups() {
  * Office - Subtract bosses pre commitment if tag {הסכם הנהלה} is with user name.
  * Not office - Add VAT if tag {תוספת מע"מ חלקית} or {תוספת מע"מ} is with user name.
  * All - Add bonus when user has 3 friday activities. Const = בונוס שישי שלישי.
+ * All - Add bonus when singal activitie {תוספת בודדת}.
  * @param {string} rowId
  * @param {string} rowDescription 
  * @param {int} addedSumVal 
