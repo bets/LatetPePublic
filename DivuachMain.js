@@ -1,4 +1,4 @@
-// version 20250707 - 1230
+// version 20250721 - 1100
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -742,6 +742,19 @@ function isTextNotEmpty(event) {
 
 //#endregion
 
+function sanitizeEmail(email) {
+    return email
+        .trim()
+        // Remove all directional formatting and zero-width characters
+        .replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, '')
+        // Remove other invisible formatting characters
+        .replace(/[\p{Cf}]/gu, '')
+        // Normalize problematic whitespace
+        .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function addStyle(clone, selector, styleName, style) {
     clone.querySelectorAll(selector).forEach((e) => {
         e.style[styleName] = style;
@@ -767,6 +780,10 @@ async function postData(formData, webhook) {
     //reportDate = `1/2026`; // JUST FOR DEBUG!!
     formData.append("reportDate", reportDate);
 
+    let emailTo = getListInputDataVal("#payCalcName input");
+    emailTo = sanitizeEmail(emailTo);
+    formData.set("emailTo", emailTo);//set replaces an old formData.append( or appends if it does not exits yet
+
     const response = await fetch(webhook, {
         method: "POST",
         cache: "no-store",
@@ -779,7 +796,7 @@ async function postData(formData, webhook) {
         console.log(text);
         alert(
             "נשלח בהצלחה!\nעותק הועבר למייל " +
-            getListInputDataVal("#payCalcName input")
+            emailTo
         );
         clearStorage(false);
     } else {
