@@ -1,4 +1,4 @@
-// version 20250721 - 1100
+// version 20250902 - 1000
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -553,11 +553,11 @@ function setOfficeWorkDays() {
     let name = qs("#payCalcName input").value;
     if (name == "") return;
 
-    let workDays = parseInt(getCol(nameCol, monthWorkDays).find((x) => x.key.includes(name)).val);
-    workDays -= parseInt(qi("vacationDays").value);
-    workDays -= parseInt(qi("sickDays").value);
-    workDays -= parseInt(qi("armyDays").value);
-    workDays -= parseInt(qi("missDays").value);
+    let workDays = parseFloat(getCol(nameCol, monthWorkDays).find((x) => x.key.includes(name)).val);
+    workDays -= parseFloat(qi("vacationDays").value);
+    workDays -= parseFloat(qi("sickDays").value);
+    workDays -= parseFloat(qi("armyDays").value);
+    workDays -= parseFloat(qi("missDays").value);
 
     qi("workDays").value = workDays;
 }
