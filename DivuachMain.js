@@ -1,4 +1,4 @@
-// version 20250902 - 1000
+// version 20250908 - 1600
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -20,46 +20,106 @@ function isLocalhost() {
 }
 
 // CONSTANTS
+// column string id in top row in sheet
+const REQUIRED_IDS = [
+    "nameCol", "mailCol", "monthWorkDays", "kmCol", "kmPayCol", "seniorityGroupCol",
+    "activityCol", "seniority1Col", "seniority6Col", "seniority26Col", "seniority100Col",
+    "constNameCol", "constValCol", "cancelPayNameCol", "cancelPayValCol"
+];
 
-//The number matches the index (place) in setQuery("select A,B..
-//The commented letter matches the column in the sheet
-var iColName = 0;
-const nameCol = iColName++;//A
-const mailCol = iColName++;//B
-const monthWorkDays = iColName++;//C - only office
-const kmCol = iColName++;//E
-const kmPayCol = iColName++;//F
-const seniorityGroupCol = iColName++;//G
-const activityCol = iColName++;//J
-const seniority1Col = iColName++;//K
-const seniority6Col = iColName++;//L
-const seniority26Col = iColName++;//M
-const constNameCol = iColName++;//O
-const constValCol = iColName++;//P
-const cancelPayNameCol = iColName++;//Q
-const cancelPayValCol = iColName;//R
+// View-index helpers (map IDs to the projected view order)
+const idx = (id) => REQUIRED_IDS.indexOf(id);
+const nameCol = idx("nameCol");
+const mailCol = idx("mailCol");
+const monthWorkDays = idx("monthWorkDays");
+const kmCol = idx("kmCol");
+const kmPayCol = idx("kmPayCol");
+const seniorityGroupCol = idx("seniorityGroupCol");
+const activityCol = idx("activityCol");
+const seniority1Col = idx("seniority1Col");
+const seniority6Col = idx("seniority6Col");
+const seniority26Col = idx("seniority26Col");
+const seniority100Col = idx("seniority100Col");
+const constNameCol = idx("constNameCol");
+const constValCol = idx("constValCol");
+const cancelPayNameCol = idx("cancelPayNameCol");
+const cancelPayValCol = idx("cancelPayValCol");
 
 function isOffice() { return !!officeAdd; }
 
-// GET GOOGLE SHEET DATA
-google.charts.load("current", { packages: ["corechart"] });
-google.charts.setOnLoadCallback(function () {
-    var query = new google.visualization.Query(
-        `https://docs.google.com/spreadsheets/d/${sourceSheetId}/gviz/tq`
-    );
-    query.setQuery("select A,B,C,E,F,G,J,K,L,M,O,P,Q,R");
-    query.send(handleQueryResponse);
-});
-var data;
-function handleQueryResponse(re) {
-    if (re.isError()) {
-        console.log(
-            `Error in query: ${re.getMessage()} ${re.getDetailedMessage()}`
-        );
-        return;
-    }
-    data = re.getDataTable();
+// Build a GViz tq URL for a public sheet with headers=1 and skip the human header row via OFFSET
+function buildGvizUrl({ sheetId, gid, range, tq = "select * offset 1" }) {
+    const base = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq`;
+    const params = new URLSearchParams({ gid: String(gid), headers: "1", tq });
+    if (range) params.set("range", range);
+    return `${base}?${params.toString()}`;
+}
 
+// Create ID -> index map from DataTable column labels; detect duplicates
+function buildIdIndexMap(data) {
+    const idToIndex = Object.create(null);
+    const duplicates = new Set();
+    const seen = new Map();
+    for (let i = 0; i < data.getNumberOfColumns(); i++) {
+        const label = String(data.getColumnLabel(i) ?? "").trim();
+        if (!label) continue;
+        if (seen.has(label)) duplicates.add(label);
+        seen.set(label, i);
+        idToIndex[label] = i;
+    }
+    return { idToIndex, duplicates: Array.from(duplicates) };
+}
+
+// Warn on missing IDs; error on duplicate labels
+function validateRequiredIds(requiredIds, idToIndex, duplicates) {
+    const missing = requiredIds.filter((id) => !(id in idToIndex));
+    if (duplicates.length) throw new Error(`Header ID validation failed: Duplicate labels: ${duplicates.join(", ")}`);
+    if (missing.length) console.warn(`Header IDs missing (placeholders will be used): ${missing.join(", ")}`);
+}
+
+// Build DataView columns: real indices for found IDs; string placeholders for missing IDs
+function buildProjectedColumns(requiredIds, idToIndex) {
+    return requiredIds.map((id) => {
+        if (id in idToIndex) return idToIndex[id];
+        return { type: 'string', label: id, calc: () => '' };
+    });
+}
+
+// Load DataTable via GViz, validate, and return a projected DataView in REQUIRED_IDS order
+function loadGvizByIds({ sheetId, gid, requiredIds = REQUIRED_IDS, range } = {}) {
+    return new Promise((resolve, reject) => {
+        const url = buildGvizUrl({ sheetId, gid, range });
+        const query = new google.visualization.Query(url);
+        query.send((resp) => {
+            if (resp.isError()) return reject(new Error(`GViz error: ${resp.getMessage()} (${resp.getDetailedMessage()})`));
+            const data = resp.getDataTable();
+            const { idToIndex, duplicates } = buildIdIndexMap(data);
+            validateRequiredIds(requiredIds, idToIndex, duplicates);
+            const cols = buildProjectedColumns(requiredIds, idToIndex);
+            const view = new google.visualization.DataView(data);
+            view.setColumns(cols);
+            resolve({ view });
+        });
+    });
+}
+
+// Loader + init (no chart packages needed if you don’t draw charts)
+var data;
+google.charts.load('current', { packages: [] }).then(init);
+function init() {
+    loadGvizByIds({ sheetId: sourceSheetId, gid: 0 })
+        .then(({ view }) => {
+            data = view;       // DataView is API-compatible with DataTable: getValue, getNumberOfRows, etc.
+            createElements();  // continue app init
+        })
+        .catch(console.error);
+}
+
+
+// HANDEL DATA FROM SHEETS
+
+/**Create all elements */
+function createElements() {
     //CREATE
     makeSelect(getCol(nameCol, mailCol), "payCalcName", true); //and email
     makeSelect(getCol(activityCol), "activityType");
@@ -81,8 +141,6 @@ function handleQueryResponse(re) {
         qs("#prices img").src = getConstValue('תמונת תעריפון');
     }
 }
-
-// HANDEL DATA FROM SHEETS
 
 /**Get a column or 2 from sheet db
 Return as array of {lable,val}
@@ -322,17 +380,17 @@ function displayStorageTime() {
 function payPerActivity(e) {
     let rowNum = getRowNum(e);
     let activityTypeRow = getValFromList(rowNum, "activityType");
-    let seniorityCol = getValFromList(rowNum, "seniority");
-    if (seniorityCol == "4") seniorityCol = "1";// ללא ותק
+    let seniorityColOffset = getValFromList(rowNum, "seniority"); //index (row) is offset from activity column
+    if (seniorityColOffset == "5") seniorityColOffset = "1";// ללא ותק
     let activityAmount = getValFromList(rowNum, "activityAmount");
     let activityTypeKey = qs(`[data-rownum='${rowNum}'] .activityType input`)
         .value;
 
-    if ((!activityTypeRow || !seniorityCol || !activityAmount))
+    if ((!activityTypeRow || !seniorityColOffset || !activityAmount))
         return;
     let singalCost = getValue(
         parseInt(activityTypeRow) - 1,//row
-        parseInt(seniorityCol) + activityCol//col
+        parseInt(seniorityColOffset) + activityCol//col - how many after the activity column
     );
     let payRowActivity = parseInt(activityAmount) * singalCost;
 
@@ -774,7 +832,7 @@ async function postData(formData, webhook) {
 
     let year = today.getFullYear();
     //When new year (Jan) but still reporting Dec of last year
-    if (today.getMonth() == 0 && today.getDate() <= submitByDay) 
+    if (today.getMonth() == 0 && today.getDate() <= submitByDay)
         year = year - 1;
     let reportDate = `${monthTab}/${year}`;
     //reportDate = `1/2026`; // JUST FOR DEBUG!!
