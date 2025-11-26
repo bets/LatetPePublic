@@ -1,4 +1,4 @@
-/* version 20250513 - 1444 */
+/* version 20251120 - 1100 */
 @import url('https://fonts.googleapis.com/css2?family=Varela+Round&display=swap');
 
 :root {
@@ -193,7 +193,6 @@ input[type="checkbox"] {
 }
 
 #errorMsg li {
-    display: none;
     color: red;
 }
 
