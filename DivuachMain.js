@@ -1,4 +1,4 @@
-// version 20250908 - 1600
+// version 20251126 - 1100
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -692,10 +692,9 @@ function addEventListenersOnce() {
 
     if (isOffice()) {
         action("#payCalcName input", 'change', setOfficeWorkDays);
-        action(".teamData [type='number']", 'change', setOfficeWorkDays);
+        action(".teamData [type='number']", 'change', [setOfficeWorkDays, validateNumberStep]);
     } else {
-        action("#receipt", "change", isReceiptAttached);
-        action("#receipt", "change", unhideReceiptNotice);
+        action("#receipt", "change", [isReceiptAttached, unhideReceiptNotice]);
     }
 }
 
@@ -706,10 +705,8 @@ function addEventListeners() {
     action(".activityType input", "change", handelActivityTypeTagPre);
     action(".activity input", "change", payPerActivity);
 
-    action(".distance [type=text]", "keyup", payPerKm);
-    action(".distance [type=text]", "keyup", handelPostActivitySumAdditions);
-    action("tbody [type=checkbox]", "change", payPerKm);
-    action("tbody [type=checkbox]", "change", handelPostActivitySumAdditions);
+    action(".distance [type=text]", "keyup", [payPerKm, handelPostActivitySumAdditions]);
+    action("tbody [type=checkbox]", "change", [payPerKm, handelPostActivitySumAdditions]);
 
     action("#payCalc .activityPay,.spacetime input", "change", handelPostActivitySumAdditions);
 
@@ -739,6 +736,8 @@ function showPrices() {
 //#region VALIDATIONS
 function isFromList(e) {
     isFromListCheck(e.target);
+
+    showErrorMsg();
 }
 //returns false if invalid
 function isFromListCheck(el) {
@@ -749,18 +748,20 @@ function isFromListCheck(el) {
     if (option != null || (el.value == "" && el.parentElement.classList.contains("okEmpty")))
         el.classList.remove("invalidList");
     else el.classList.add("invalidList");
-    showErrorMsg();
+
     return !el.classList.contains("invalidList");
 }
-function isListNotEmpty() {
+function isListNotEmpty(showErrors = true) {
     qsa("#payCalc [list]").forEach((el) => {
         if (el.value && isFromListCheck(el)) {
             el.classList.remove("invalidList");
         } else if (!(el.value == "" && el.parentElement.classList.contains("okEmpty")))
             el.classList.add("invalidList");
     });
+    if (showErrors)
+        showErrorMsg();
 }
-function checkDate() {
+function checkDate(showErrors = true) {
     qsa("#payCalc [type='date']").forEach((el) => {
         if (el.value != "") {
             el.classList.remove("invalidDate");
@@ -768,7 +769,8 @@ function checkDate() {
             el.classList.add("invalidDate");
         }
     });
-    showErrorMsg();
+    if (showErrors)
+        showErrorMsg();
 }
 
 function isAlreadySent() {
@@ -776,7 +778,7 @@ function isAlreadySent() {
         return !confirm("המידע כבר נשלח ונקלט במשרד.\n בכל זאת לשלוח שוב?");
     return false;
 }
-function isPatternMatch() {
+function isPatternMatch(showErrors = true) {
     qsa("#payCalc [pattern]").forEach((el) => {
         if (el.checkValidity()) {
             el.classList.remove("invalidPattern");
@@ -784,9 +786,10 @@ function isPatternMatch() {
             el.classList.add("invalidPattern");
         }
     });
-    showErrorMsg();
+    if (showErrors)
+        showErrorMsg();
 }
-function isTextNotEmpty(event) {
+function isTextNotEmpty(event, showErrors = true) {
     let els = event ? [event.target] : qsa("#payCalc .notEmpty input");
     els.forEach((el) => {
         if (el.value) {
@@ -795,7 +798,93 @@ function isTextNotEmpty(event) {
             el.classList.add("invalidEmpty");
         }
     });
-    showErrorMsg();
+    if (showErrors)
+        showErrorMsg();
+}
+
+/**
+ * Validate number input steps (if step is 1, so 1.5 is not allowed)
+ */
+function validateNumberStep(showErrors = true) {
+    qsa("#payCalc input[type='number']").forEach((el) => {
+        el.classList.toggle("invalidStep", el.validity.stepMismatch);
+    });
+    if (showErrors)
+        showErrorMsg();
+}
+function isReceiptAttached(showErrors = true) {
+    let receiptInput = qs("#payCalc #receipt");
+    if (receiptInput.files.length) {
+        receiptInput.classList.remove("invalidReceipt");
+    } else {
+        receiptInput.classList.add("invalidReceipt");
+    }
+    if (showErrors)
+        showErrorMsg();
+}
+
+const validations = {
+    invalidList: {
+        message: "נא (למחוק ו)לבחור ערך מהרשימה",
+        validate: isListNotEmpty,
+        group: ["guides", "team"]
+    },
+    invalidEmpty: {
+        message: "נא למלא ערך",
+        validate: isTextNotEmpty,
+        group: ["guides", "team"]
+    },
+    invalidDate: {
+        message: "נא לתת תאריך",
+        validate: checkDate,
+        group: ["guides", "team"]
+    },
+    invalidPattern: {
+        message: "ערך לא תקין",
+        validate: isPatternMatch,
+        group: ["guides", "team"]
+    },
+    invalidStep: {
+        message: "מספר לא עגול",
+        validate: validateNumberStep,
+        group: ["guides", "team"]
+    },
+    invalidReceipt: {
+        message: "נא לצרף קבלה",
+        validate: isReceiptAttached,
+        group: ["guides"]
+    }
+};
+
+
+function validateFailed() {
+    if (isAlreadySent()) return true;
+
+    let group = isOffice() ? "team" : "guides";
+
+    Object.keys(validations).forEach((errorType) => {
+        if (validations[errorType].group.includes(group))
+            validations[errorType].validate(false);//maybe when activated from here dont triggr internal showErrorMsg
+    });
+
+    return showErrorMsg();
+}
+
+
+function showErrorMsg() {
+    const errorList = qs("#errorMsg");
+    errorList.innerHTML = ""; // Clear previous errors
+    let hasError = false;
+
+    Object.keys(validations).forEach((errorType) => {
+        if (qsa(`#payCalc .${errorType}`).length > 0) { // If validation fails
+            const li = document.createElement("li");
+            li.textContent = validations[errorType].message;
+            errorList.appendChild(li);
+            hasError = true;
+        }
+    });
+    return hasError;
 }
 
 //#endregion
@@ -904,9 +993,10 @@ function cl(txt) {
  * Add event listener to element, works with singal or many selectors, elements & events
  * @param {string} selector element selector/s, comma separated
  * @param {string} events event name/s, comma separated 
- * @param {any} func one function or function name to execute
+ * @param {any} func function or array of functions to execute
  */
 function action(selector, events, func) {
+    const functions = Array.isArray(func) ? func : [func];
     qsa(selector).forEach(el => {
         events.replaceAll(" ", "").split(",").forEach(e => {
             // Check if element has custom property _eventListeners and create it if not
@@ -914,11 +1004,13 @@ function action(selector, events, func) {
                 el['_eventListeners'] = {};
             }
             // Check if the event listener is already added
-            if (!el['_eventListeners'][`${e}>${func.name}`]) {
-                el.addEventListener(e, func);
-                // Mark this event as added for this element
-                el['_eventListeners'][`${e}>${func.name}`] = true;
-            }
+            functions.forEach(f => {
+                if (!el['_eventListeners'][`${e}>${f.name}`]) {
+                    el.addEventListener(e, f);
+                    // Mark this event as added for this element
+                    el['_eventListeners'][`${e}>${f.name}`] = true;
+                }
+            });
         });
     });
 }
