@@ -1,4 +1,4 @@
-// version 20251126 - 1100
+// version 20260423 - 1200
 
 //remove wordpress css
 if (!isLocalhost()) {
@@ -16,7 +16,7 @@ if (!isLocalhost()) {
 }
 
 function isLocalhost() {
-    return window.location.hostname === 'localhost';
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 }
 
 // CONSTANTS
@@ -607,15 +607,46 @@ function handelFuel(rowNum) {
  * Set expected work days by name
  * Subtract sick, vacation... days used
  */
-function setOfficeWorkDays() {
+function setOfficeWorkDays(e) {
     let name = qs("#payCalcName input").value;
     if (name == "") return;
 
+    const deductionFields = ["vacationDays", "sickDays", "armyDays", "missDays"];
+
     let workDays = parseFloat(getCol(nameCol, monthWorkDays).find((x) => x.key.includes(name)).val);
-    workDays -= parseFloat(qi("vacationDays").value);
-    workDays -= parseFloat(qi("sickDays").value);
-    workDays -= parseFloat(qi("armyDays").value);
-    workDays -= parseFloat(qi("missDays").value);
+
+    // Get current deduction values
+    let deductions = {};
+    deductionFields.forEach(field => {
+        deductions[field] = parseFloat(qi(field).value) || 0;
+    });
+
+    // Calculate projected workDays
+    let projectedWorkDays = workDays - Object.values(deductions).reduce((a, b) => a + b, 0);
+
+    // If negative, adjust the field that triggered the change
+    if (projectedWorkDays < 0) {
+        let excess = Math.abs(projectedWorkDays);
+        let triggeredField = e ? e.target.id : deductionFields[0];
+        let currentVal = parseFloat(qi(triggeredField).value) || 0;
+
+        if (currentVal > 0) {
+            let reduction = Math.min(currentVal, excess);
+            qi(triggeredField).value = currentVal - reduction;
+
+            // Get label text from the triggered field's label
+            let label = qi(triggeredField).previousElementSibling;
+            let labelText = label ? label.textContent : triggeredField;
+
+            alert(`לא ניתן להוריד יותר ימי עבודה מאשר יש בפועל.\n${Math.round(reduction * 2) / 2} ימים הוסרו מ-${labelText}`);
+        }
+    }
+
+    // Final calculation
+    workDays = parseFloat(getCol(nameCol, monthWorkDays).find((x) => x.key.includes(name)).val);
+    deductionFields.forEach(field => {
+        workDays -= parseFloat(qi(field).value) || 0;
+    });
 
     qi("workDays").value = workDays;
 }
